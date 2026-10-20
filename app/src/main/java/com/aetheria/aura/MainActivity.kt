@@ -127,10 +127,10 @@ fun MainScreen() {
                 .align(Alignment.TopEnd)
         ) {
             Icon(
-                Settings,
+                imageVector = Settings,
                 contentDescription = "Debug",
                 tint = Color.White.copy(alpha = 0.7f),
-                size = 28.dp
+                modifier = Modifier.size(28.dp)
             )
         }
     }
