@@ -76,7 +76,7 @@ fun AvatarDebugScreen(
             // State buttons
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 states.forEach { (name, state) ->
-                    val isSelected = currentState.getClass() == state.getClass()
+                    val isSelected = currentState::class == state::class
                     Button(
                         onClick = { onStateChange(state) },
                         modifier = Modifier.fillMaxWidth(),

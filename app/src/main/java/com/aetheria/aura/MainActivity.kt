@@ -5,10 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.Column
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Row
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material.icons.filled.Settings
@@ -24,6 +21,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -126,7 +125,7 @@ fun MainScreen() {
                 .padding(16.dp)
                 .align(Alignment.TopEnd)
         ) {
-            Icon(
+            androidx.compose.material.Icon(
                 Settings,
                 contentDescription = "Debug",
                 tint = Color.White.copy(alpha = 0.7f),
