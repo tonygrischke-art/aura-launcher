@@ -1,10 +1,13 @@
 package com.aetheria.aura.avatar
 
 import android.os.SystemClock
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.linear
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.repeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
@@ -18,15 +21,19 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.Snapshot
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.Rect
 import androidx.compose.ui.graphics.RadialGradient
 import androidx.compose.ui.graphics.ShaderBrush
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.drawscope.drawCircle
 import androidx.compose.ui.graphics.drawscope.drawPath
 import androidx.compose.ui.graphics.drawscope.drawRect
@@ -103,7 +110,7 @@ private fun drawNeutral(
             Color(0xFF00E5FF).copy(alpha = alpha * 0.6f),
             Color(0xFF00E5FF).copy(alpha = 0f)
         ),
-        center = androidx.compose.ui.geometry.Offset(centerX, centerY),
+        center = Offset(centerX, centerY),
         radius = outerRadius
     )
     drawCircle(outerBrush, centerX, centerY, outerRadius)
@@ -115,7 +122,7 @@ private fun drawNeutral(
             Color(0xFF00E5FF).copy(alpha = alpha * 0.95f),
             Color(0xFF00E5FF).copy(alpha = 0f)
         ),
-        center = androidx.compose.ui.geometry.Offset(centerX, centerY),
+        center = Offset(centerX, centerY),
         radius = innerRadius
     )
     drawCircle(innerBrush, centerX, centerY, innerRadius)
@@ -126,7 +133,7 @@ private fun drawNeutral(
             Color(0xFF00E5FF),
             Color(0xFF8B5CF6)
         ),
-        center = androidx.compose.ui.geometry.Offset(centerX, centerY),
+        center = Offset(centerX, centerY),
         radius = animatedRadius
     )
     drawCircle(coreBrush, centerX, centerY, animatedRadius)
@@ -151,7 +158,7 @@ private fun drawListening(
             Color(0xFF00E5FF).copy(alpha = 0.6f),
             Color(0xFF00E5FF).copy(alpha = 0f)
         ),
-        center = androidx.compose.ui.geometry.Offset(centerX, centerY),
+        center = Offset(centerX, centerY),
         radius = outerRadius
     )
     drawCircle(outerBrush, centerX, centerY, outerRadius)
@@ -163,7 +170,7 @@ private fun drawListening(
             Color(0xFF00E5FF).copy(alpha = 0.95f),
             Color(0xFF00E5FF).copy(alpha = 0f)
         ),
-        center = androidx.compose.ui.geometry.Offset(centerX, centerY),
+        center = Offset(centerX, centerY),
         radius = innerRadius
     )
     drawCircle(innerBrush, centerX, centerY, innerRadius)
@@ -175,7 +182,7 @@ private fun drawListening(
                 Color(0xFF00E5FF).copy(alpha = rippleAlpha),
                 Color(0xFF00E5FF).copy(alpha = 0f)
             ),
-            center = androidx.compose.ui.geometry.Offset(centerX, centerY),
+            center = Offset(centerX, centerY),
             radius = rippleRadius
         )
         drawCircle(rippleBrush, centerX, centerY, rippleRadius)
@@ -187,7 +194,7 @@ private fun drawListening(
             Color(0xFF00E5FF),
             Color(0xFF8B5CF6)
         ),
-        center = androidx.compose.ui.geometry.Offset(centerX, centerY),
+        center = Offset(centerX, centerY),
         radius = animatedRadius
     )
     drawCircle(coreBrush, centerX, centerY, animatedRadius)
@@ -212,7 +219,7 @@ private fun drawThinking(
             outerViolet.copy(alpha = 0.6f),
             outerViolet.copy(alpha = 0f)
         ),
-        center = androidx.compose.ui.geometry.Offset(centerX, centerY),
+        center = Offset(centerX, centerY),
         radius = outerRadius
     )
     drawCircle(outerBrush, centerX, centerY, outerRadius)
@@ -225,7 +232,7 @@ private fun drawThinking(
             innerViolet.copy(alpha = 0.95f),
             innerViolet.copy(alpha = 0f)
         ),
-        center = androidx.compose.ui.geometry.Offset(centerX, centerY),
+        center = Offset(centerX, centerY),
         radius = innerRadius
     )
     drawCircle(innerBrush, centerX, centerY, innerRadius)
@@ -236,7 +243,7 @@ private fun drawThinking(
             lerp(Color(0xFF00E5FF), Color(0xFF8B5CF6), violetShift),
             Color(0xFF8B5CF6)
         ),
-        center = androidx.compose.ui.geometry.Offset(centerX, centerY),
+        center = Offset(centerX, centerY),
         radius = animatedRadius
     )
     drawCircle(coreBrush, centerX, centerY, animatedRadius)
@@ -247,7 +254,7 @@ private fun drawThinking(
         val arcSweep = PI * 0.6f
         val arcPath = Path().apply {
             addArc(
-                androidx.compose.ui.graphics.Rect(
+                Rect(
                     centerX - animatedRadius * 1.2f,
                     centerY - animatedRadius * 1.2f,
                     centerX + animatedRadius * 1.2f,
@@ -260,7 +267,7 @@ private fun drawThinking(
         drawPath(
             arcPath,
             Color(0xFF00E5FF).copy(alpha = 0.7f),
-            style = androidx.compose.ui.graphics.Paint.Style.Stroke,
+            style = Paint.Style.Stroke,
             strokeWidth = 4f
         )
     }
@@ -284,7 +291,7 @@ private fun drawSpeaking(
             Color(0xFF00E5FF).copy(alpha = 0.6f),
             Color(0xFF00E5FF).copy(alpha = 0f)
         ),
-        center = androidx.compose.ui.geometry.Offset(centerX, centerY),
+        center = Offset(centerX, centerY),
         radius = outerRadius
     )
     drawCircle(outerBrush, centerX, centerY, outerRadius)
@@ -296,7 +303,7 @@ private fun drawSpeaking(
             Color(0xFF00E5FF).copy(alpha = 0.95f),
             Color(0xFF00E5FF).copy(alpha = 0f)
         ),
-        center = androidx.compose.ui.geometry.Offset(centerX, centerY),
+        center = Offset(centerX, centerY),
         radius = innerRadius
     )
     drawCircle(innerBrush, centerX, centerY, innerRadius)
@@ -307,7 +314,7 @@ private fun drawSpeaking(
             Color(0xFF00E5FF),
             Color(0xFF8B5CF6)
         ),
-        center = androidx.compose.ui.geometry.Offset(centerX, centerY),
+        center = Offset(centerX, centerY),
         radius = animatedRadius
     )
 
@@ -317,7 +324,7 @@ private fun drawSpeaking(
 
     val path = Path().apply {
         addOval(
-            androidx.compose.ui.graphics.Rect(
+            Rect(
                 centerX - horizontalRadius,
                 centerY - verticalRadius,
                 centerX + horizontalRadius,
@@ -358,7 +365,7 @@ private fun drawError(
     }
     val outerBrush = Brush.radialGradient(
         colors = listOf(outerColor, outerColor.copy(alpha = 0f)),
-        center = androidx.compose.ui.geometry.Offset(centerX, centerY),
+        center = Offset(centerX, centerY),
         radius = outerRadius
     )
     drawCircle(outerBrush, centerX, centerY, outerRadius)
@@ -372,7 +379,7 @@ private fun drawError(
     }
     val innerBrush = Brush.radialGradient(
         colors = listOf(innerColor, innerColor.copy(alpha = 0f)),
-        center = androidx.compose.ui.geometry.Offset(centerX, centerY),
+        center = Offset(centerX, centerY),
         radius = innerRadius
     )
     drawCircle(innerBrush, centerX, centerY, innerRadius)
@@ -385,7 +392,7 @@ private fun drawError(
     }
     val coreBrush = Brush.radialGradient(
         colors = listOf(coreColor, coreColor),
-        center = androidx.compose.ui.geometry.Offset(centerX, centerY),
+        center = Offset(centerX, centerY),
         radius = animatedRadius
     )
     drawCircle(coreBrush, centerX, centerY, animatedRadius)
@@ -411,7 +418,7 @@ private fun drawConfirm(
             Color(0xFF00E5FF).copy(alpha = outerAlpha),
             Color(0xFF00E5FF).copy(alpha = 0f)
         ),
-        center = androidx.compose.ui.geometry.Offset(centerX, centerY),
+        center = Offset(centerX, centerY),
         radius = outerRadius
     )
     drawCircle(outerBrush, centerX, centerY, outerRadius)
@@ -424,7 +431,7 @@ private fun drawConfirm(
             Color(0xFF00E5FF).copy(alpha = innerAlpha),
             Color(0xFF00E5FF).copy(alpha = 0f)
         ),
-        center = androidx.compose.ui.geometry.Offset(centerX, centerY),
+        center = Offset(centerX, centerY),
         radius = innerRadius
     )
     drawCircle(innerBrush, centerX, centerY, innerRadius)
@@ -435,7 +442,7 @@ private fun drawConfirm(
             Color(0xFF00E5FF),
             Color(0xFF8B5CF6)
         ),
-        center = androidx.compose.ui.geometry.Offset(centerX, centerY),
+        center = Offset(centerX, centerY),
         radius = bloomRadius
     )
     drawCircle(coreBrush, centerX, centerY, bloomRadius)
@@ -465,8 +472,8 @@ fun rememberNeutralAnimation(): Float {
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1500, easing = androidx.compose.animation.core.Easing.InOut),
-            repeatMode = androidx.compose.animation.core.RepeatMode.Reverse
+            animation = tween(1500, easing = Easing.InOut),
+            repeatMode = RepeatMode.Reverse
         ),
         label = "breath"
     )
@@ -479,8 +486,8 @@ fun rememberListeningAnimation(): Float {
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(400, easing = androidx.compose.animation.core.Easing.Linear),
-            repeatMode = androidx.compose.animation.core.RepeatMode.Restart
+            animation = tween(400, easing = Easing.Linear),
+            repeatMode = RepeatMode.Restart
         ),
         label = "ripple"
     )
@@ -493,8 +500,8 @@ fun rememberThinkingAnimation(): Float {
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(3000, easing = androidx.compose.animation.core.Easing.Linear),
-            repeatMode = androidx.compose.animation.core.RepeatMode.Restart
+            animation = tween(3000, easing = Easing.Linear),
+            repeatMode = RepeatMode.Restart
         ),
         label = "rotation"
     )
@@ -526,7 +533,7 @@ fun rememberErrorAnimation(): Pair<Float, Float> {
             while (flashPhase < 1f) {
                 val elapsed = (SystemClock.uptimeMillis() - startTime) / 1000f
                 flashPhase = min(elapsed / 0.2f, 1f)
-                androidx.compose.runtime.Snapshot.sendApplyNotifications()
+                Snapshot.sendApplyNotifications()
                 kotlinx.coroutines.delay(16)
             }
             // Dim phase: 1000ms
@@ -534,7 +541,7 @@ fun rememberErrorAnimation(): Pair<Float, Float> {
             while (dimPhase < 1f) {
                 val elapsed = (SystemClock.uptimeMillis() - dimStart) / 1000f
                 dimPhase = min(elapsed / 1.0f, 1f)
-                androidx.compose.runtime.Snapshot.sendApplyNotifications()
+                Snapshot.sendApplyNotifications()
                 kotlinx.coroutines.delay(16)
             }
         }
@@ -557,7 +564,7 @@ fun rememberConfirmAnimation(): Pair<Float, Float> {
             while (bloomPhase < 1f) {
                 val elapsed = (SystemClock.uptimeMillis() - startTime) / 1000f
                 bloomPhase = min(elapsed / 0.6f, 1f)
-                androidx.compose.runtime.Snapshot.sendApplyNotifications()
+                Snapshot.sendApplyNotifications()
                 kotlinx.coroutines.delay(16)
             }
             // Sparkle: 200ms
@@ -565,7 +572,7 @@ fun rememberConfirmAnimation(): Pair<Float, Float> {
             while (sparklePhase < 1f) {
                 val elapsed = (SystemClock.uptimeMillis() - sparkleStart) / 1000f
                 sparklePhase = min(elapsed / 0.2f, 1f)
-                androidx.compose.runtime.Snapshot.sendApplyNotifications()
+                Snapshot.sendApplyNotifications()
                 kotlinx.coroutines.delay(16)
             }
         }
