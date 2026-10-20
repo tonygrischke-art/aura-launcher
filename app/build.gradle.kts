@@ -77,6 +77,8 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:$lifecycleVersion")
     implementation("androidx.core:core-ktx:$coreKtxVersion")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:$coroutinesVersion")
+    // Material Components for View-based themes
+    implementation("com.google.android.material:material:1.12.0")
 
     // Debug
     debugImplementation("androidx.compose.ui:ui-tooling")

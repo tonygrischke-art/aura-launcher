@@ -1,5 +1,5 @@
 <resources>
-    <style name="Theme.Aura" parent="Theme.Material3.DayNight.NoActionBar">
+    <style name="Theme.Aura" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <item name="colorPrimary">@color/cyan</item>
         <item name="colorPrimaryContainer">@color/violet</item>
         <item name="colorSecondary">@color/violet</item>
