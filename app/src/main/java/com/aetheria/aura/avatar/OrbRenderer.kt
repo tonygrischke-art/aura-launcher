@@ -34,7 +34,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.px
 import androidx.compose.ui.util.lerp
 import androidx.compose.foundation.layout.fillMaxSize
 import kotlinx.coroutines.delay
@@ -264,7 +263,7 @@ private fun DrawScope.drawThinking(
         drawPath(
             arcPath,
             brush = SolidColor(Color(0xFF00E5FF).copy(alpha = 0.7f)),
-            style = Stroke(width = 4f.px)
+            style = Stroke(width = 4.dp)
         )
     }
 }
