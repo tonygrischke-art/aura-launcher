@@ -95,8 +95,9 @@ fun MainScreen() {
     val (bloomPhase, sparklePhase) = rememberConfirmAnimation()
 
     // Update avatarState with animation values
-    val animatedState = remember(avatarState, breathPhase, ripplePhase, rotationDegrees, smoothedMouthOpen, flashPhase, dimPhase, bloomPhase, sparklePhase) {
-        when (avatarState) {
+    val currentState = avatarState
+    val animatedState = remember(currentState, breathPhase, ripplePhase, rotationDegrees, smoothedMouthOpen, flashPhase, dimPhase, bloomPhase, sparklePhase) {
+        when (currentState) {
             is AvatarState.Neutral -> avatarState.copy(breathPhase = breathPhase)
             is AvatarState.Listening -> avatarState.copy(ripplePhase = ripplePhase)
             is AvatarState.Thinking -> avatarState.copy(rotationDegrees = rotationDegrees, violetShift = (rotationDegrees % 360f) / 360f)
