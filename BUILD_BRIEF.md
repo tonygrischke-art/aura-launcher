@@ -13,4 +13,4 @@
 - No step starts until I approve the previous one.
 - GitHub Actions does all building (no local Gradle/Android SDK).
 - Raw output only, no summaries.
-- One step per turn.
+- One step per turn.# Build trigger
