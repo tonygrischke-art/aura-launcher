@@ -25,7 +25,6 @@ import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Path
@@ -263,7 +262,7 @@ private fun DrawScope.drawThinking(
         }
         drawPath(
             arcPath,
-            SolidColor(Color(0xFF00E5FF).copy(alpha = 0.7f)),
+            Color(0xFF00E5FF).copy(alpha = 0.7f),
             strokeWidth = 4f
         )
     }
