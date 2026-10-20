@@ -2,7 +2,6 @@ package com.aetheria.aura.avatar.debug
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -44,71 +43,66 @@ fun AvatarDebugScreen(
         "Confirm" to AvatarState.Confirm()
     )
 
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .height(300.dp)
             .background(Color(0xCC000000))
-            .padding(16.dp)
-        contentAlignment = Alignment.BottomCenter
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Column(
+        // Close button
+        Row(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalArrangement = Arrangement.End
         ) {
-            // Close button
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-            ) {
-                Button(onClick = onClose) {
-                    Text("✕ Close", fontSize = 14.sp, color = Color.White)
-                }
+            Button(onClick = onClose) {
+                Text("✕ Close", fontSize = 14.sp, color = Color.White)
             }
-
-            Text(
-                "Avatar Debug Controls",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
-
-            // State buttons
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                states.forEach { (name, state) ->
-                    val isSelected = currentState::class == state::class
-                    Button(
-                        onClick = { onStateChange(state) },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                            containerColor = if (isSelected) Color(0xFF00E5FF) else Color(0xFF333333),
-                            contentColor = if (isSelected) Color.Black else Color.White
-                        )
-                    ) {
-                        Text(name, fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                    }
-                }
-            }
-
-            // Mouth open slider
-            Text(
-                "Mouth Open: ${(mouthOpen * 100).toInt()}%",
-                fontSize = 14.sp,
-                color = Color.White.copy(alpha = 0.8f)
-            )
-            Slider(
-                value = mouthOpen,
-                onValueChange = onMouthOpenChange,
-                valueRange = 0f..1f,
-                modifier = Modifier.fillMaxWidth(),
-                colors = SliderDefaults.colors(
-                    thumbColor = Color(0xFF00E5FF),
-                    trackColor = Color(0xFF00E5FF).copy(alpha = 0.3f),
-                    activeTrackColor = Color(0xFF00E5FF),
-                    inactiveTrackColor = Color(0xFF333333)
-                )
-            )
         }
+
+        Text(
+            "Avatar Debug Controls",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White
+        )
+
+        // State buttons
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            states.forEach { (name, state) ->
+                val isSelected = currentState::class == state::class
+                Button(
+                    onClick = { onStateChange(state) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                        containerColor = if (isSelected) Color(0xFF00E5FF) else Color(0xFF333333),
+                        contentColor = if (isSelected) Color.Black else Color.White
+                    )
+                ) {
+                    Text(name, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                }
+            }
+        }
+
+        // Mouth open slider
+        Text(
+            "Mouth Open: ${(mouthOpen * 100).toInt()}%",
+            fontSize = 14.sp,
+            color = Color.White.copy(alpha = 0.8f)
+        )
+        Slider(
+            value = mouthOpen,
+            onValueChange = onMouthOpenChange,
+            valueRange = 0f..1f,
+            modifier = Modifier.fillMaxWidth(),
+            colors = SliderDefaults.colors(
+                thumbColor = Color(0xFF00E5FF),
+                trackColor = Color(0xFF00E5FF).copy(alpha = 0.3f),
+                activeTrackColor = Color(0xFF00E5FF),
+                inactiveTrackColor = Color(0xFF333333)
+            )
+        )
     }
 }
