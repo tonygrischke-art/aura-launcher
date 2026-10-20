@@ -4,6 +4,12 @@ plugins {
     id("kotlin-android")
 }
 
+val composeBomVersion: String by project
+val activityComposeVersion: String by project
+val lifecycleVersion: String by project
+val coreKtxVersion: String by project
+val coroutinesVersion: String by project
+
 android {
     namespace = "com.aetheria.aura"
     compileSdk = 36
