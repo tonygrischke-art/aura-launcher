@@ -13,6 +13,8 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.VectorConverter
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -28,11 +30,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.RadialGradient
-import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.drawCircle
 import androidx.compose.ui.graphics.drawscope.drawPath
 import androidx.compose.ui.graphics.drawscope.drawRect
@@ -93,7 +94,7 @@ fun OrbRenderer(
     }
 }
 
-private fun drawNeutral(
+private fun DrawScope.drawNeutral(
     centerX: Float,
     centerY: Float,
     baseRadius: Float,
@@ -138,7 +139,7 @@ private fun drawNeutral(
     drawCircle(coreBrush, centerX, centerY, animatedRadius)
 }
 
-private fun drawListening(
+private fun DrawScope.drawListening(
     centerX: Float,
     centerY: Float,
     baseRadius: Float,
@@ -198,7 +199,7 @@ private fun drawListening(
     drawCircle(coreBrush, centerX, centerY, animatedRadius)
 }
 
-private fun drawThinking(
+private fun DrawScope.drawThinking(
     centerX: Float,
     centerY: Float,
     baseRadius: Float,
@@ -270,7 +271,7 @@ private fun drawThinking(
     }
 }
 
-private fun drawSpeaking(
+private fun DrawScope.drawSpeaking(
     centerX: Float,
     centerY: Float,
     baseRadius: Float,
@@ -331,7 +332,7 @@ private fun drawSpeaking(
     drawPath(path, coreBrush)
 }
 
-private fun drawError(
+private fun DrawScope.drawError(
     centerX: Float,
     centerY: Float,
     baseRadius: Float,
@@ -393,7 +394,7 @@ private fun drawError(
     drawCircle(coreBrush, centerX, centerY, animatedRadius)
 }
 
-private fun drawConfirm(
+private fun DrawScope.drawConfirm(
     centerX: Float,
     centerY: Float,
     baseRadius: Float,

@@ -99,9 +99,10 @@ fun AvatarDebugScreen(
             modifier = Modifier.fillMaxWidth(),
             colors = SliderDefaults.colors(
                 thumbColor = Color(0xFF00E5FF),
-                trackColor = Color(0xFF00E5FF).copy(alpha = 0.3f),
                 activeTrackColor = Color(0xFF00E5FF),
-                inactiveTrackColor = Color(0xFF333333)
+                inactiveTrackColor = Color(0xFF333333),
+                activeTickColor = Color(0xFF00E5FF).copy(alpha = 0.3f),
+                inactiveTickColor = Color(0xFF333333).copy(alpha = 0.3f)
             )
         )
     }
