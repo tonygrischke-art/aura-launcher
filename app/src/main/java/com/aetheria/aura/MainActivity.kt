@@ -91,12 +91,12 @@ fun MainScreen() {
     val currentState = avatarState
     val animatedState: AvatarState = remember(currentState, breathPhase, ripplePhase, rotationDegrees, smoothedMouthOpen, flashPhase, dimPhase, bloomPhase, sparklePhase) {
         when (currentState) {
-            is AvatarState.Neutral -> avatarState.copy(breathPhase = breathPhase)
-            is AvatarState.Listening -> avatarState.copy(ripplePhase = ripplePhase)
-            is AvatarState.Thinking -> avatarState.copy(rotationDegrees = rotationDegrees, violetShift = (rotationDegrees % 360f) / 360f)
-            is AvatarState.Speaking -> avatarState.copy(mouthOpen = smoothedMouthOpen, scale = 1f + smoothedMouthOpen * 0.3f)
-            is AvatarState.Error -> avatarState.copy(flashPhase = flashPhase, dimPhase = dimPhase)
-            is AvatarState.Confirm -> avatarState.copy(bloomPhase = bloomPhase, sparklePhase = sparklePhase)
+            is AvatarState.Neutral -> currentState.copy(breathPhase = breathPhase)
+            is AvatarState.Listening -> currentState.copy(ripplePhase = ripplePhase)
+            is AvatarState.Thinking -> currentState.copy(rotationDegrees = rotationDegrees, violetShift = (rotationDegrees % 360f) / 360f)
+            is AvatarState.Speaking -> currentState.copy(mouthOpen = smoothedMouthOpen, scale = 1f + smoothedMouthOpen * 0.3f)
+            is AvatarState.Error -> currentState.copy(flashPhase = flashPhase, dimPhase = dimPhase)
+            is AvatarState.Confirm -> currentState.copy(bloomPhase = bloomPhase, sparklePhase = sparklePhase)
         }
     }
 

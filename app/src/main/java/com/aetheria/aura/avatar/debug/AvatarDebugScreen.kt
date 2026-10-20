@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.align
 import androidx.compose.material3.Button
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -102,7 +103,7 @@ fun AvatarDebugScreen(
                 onValueChange = onMouthOpenChange,
                 valueRange = 0f..1f,
                 modifier = Modifier.fillMaxWidth(),
-                colors = androidx.compose.material3.SliderDefaults.colors(
+                colors = SliderDefaults.colors(
                     thumbColor = Color(0xFF00E5FF),
                     trackColor = Color(0xFF00E5FF).copy(alpha = 0.3f),
                     activeTrackColor = Color(0xFF00E5FF),
