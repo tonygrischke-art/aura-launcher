@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.RadialGradient
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.DrawStyle
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
 import androidx.compose.foundation.layout.fillMaxSize
@@ -263,7 +264,7 @@ private fun DrawScope.drawThinking(
         drawPath(
             arcPath,
             Color(0xFF00E5FF).copy(alpha = 0.7f),
-            style = DrawStyle.Stroke,
+            style = Stroke,
             strokeWidth = 4f
         )
     }
