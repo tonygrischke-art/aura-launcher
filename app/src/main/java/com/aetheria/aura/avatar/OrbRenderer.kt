@@ -476,7 +476,7 @@ fun rememberNeutralAnimation(): Float {
             repeatMode = RepeatMode.Reverse
         ),
         label = "breath"
-    )
+    ).value
 }
 
 @Composable
@@ -490,7 +490,7 @@ fun rememberListeningAnimation(): Float {
             repeatMode = RepeatMode.Restart
         ),
         label = "ripple"
-    )
+    ).value
 }
 
 @Composable
@@ -504,7 +504,7 @@ fun rememberThinkingAnimation(): Float {
             repeatMode = RepeatMode.Restart
         ),
         label = "rotation"
-    )
+    ).value
 }
 
 @Composable

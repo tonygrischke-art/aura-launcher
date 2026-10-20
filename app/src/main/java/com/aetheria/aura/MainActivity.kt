@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
@@ -88,7 +89,7 @@ fun MainScreen() {
 
     // Update avatarState with animation values
     val currentState = avatarState
-    val animatedState = remember(currentState, breathPhase, ripplePhase, rotationDegrees, smoothedMouthOpen, flashPhase, dimPhase, bloomPhase, sparklePhase) {
+    val animatedState: AvatarState = remember(currentState, breathPhase, ripplePhase, rotationDegrees, smoothedMouthOpen, flashPhase, dimPhase, bloomPhase, sparklePhase) {
         when (currentState) {
             is AvatarState.Neutral -> avatarState.copy(breathPhase = breathPhase)
             is AvatarState.Listening -> avatarState.copy(ripplePhase = ripplePhase)
@@ -125,7 +126,7 @@ fun MainScreen() {
                 .padding(16.dp)
                 .align(Alignment.TopEnd)
         ) {
-            androidx.compose.material.Icon(
+            Icon(
                 Settings,
                 contentDescription = "Debug",
                 tint = Color.White.copy(alpha = 0.7f),
