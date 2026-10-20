@@ -263,7 +263,7 @@ private fun DrawScope.drawThinking(
         drawPath(
             arcPath,
             brush = SolidColor(Color(0xFF00E5FF).copy(alpha = 0.7f)),
-            style = Stroke(width = 4.dp)
+            style = Stroke(width = 4f)
         )
     }
 }
