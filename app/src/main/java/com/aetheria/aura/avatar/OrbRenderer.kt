@@ -32,6 +32,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.RadialGradient
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.DrawStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
 import androidx.compose.foundation.layout.fillMaxSize
@@ -94,8 +95,9 @@ private fun DrawScope.drawNeutral(
     baseRadius: Float,
     breathPhase: Float
 ) {
-    val animatedRadius = baseRadius * (1f + 0.08f * sin(breathPhase * 2f * PI))
-    val alpha = 0.6f + 0.2f * sin(breathPhase * 2f * PI)
+    val PI_F = PI.toFloat()
+    val animatedRadius = baseRadius * (1f + 0.08f * sin(breathPhase * 2f * PI_F))
+    val alpha = 0.6f + 0.2f * sin(breathPhase * 2f * PI_F)
 
     // Outer glow
     val outerRadius = animatedRadius + 48f
@@ -140,6 +142,7 @@ private fun DrawScope.drawListening(
     ripplePhase: Float,
     scale: Float
 ) {
+    val PI_F = PI.toFloat()
     val animatedRadius = baseRadius * scale
     val rippleRadius = animatedRadius + (ripplePhase * 60f)
     val rippleAlpha = (1f - ripplePhase) * 0.8f
@@ -201,7 +204,8 @@ private fun DrawScope.drawThinking(
     violetShift: Float
 ) {
     val animatedRadius = baseRadius
-    val rotationRadians = rotationDegrees * PI / 180f
+    val PI_F = PI.toFloat()
+    val rotationRadians = rotationDegrees * PI_F / 180f
 
     // Outer glow with violet shift
     val outerRadius = animatedRadius + 48f
@@ -242,8 +246,8 @@ private fun DrawScope.drawThinking(
 
     // Three rotating arcs
     for (i in 0..2) {
-        val arcStart = rotationRadians + (i * 2f * PI / 3f)
-        val arcSweep = PI * 0.6f
+        val arcStart = rotationRadians + (i * 2f * PI_F / 3f)
+        val arcSweep = PI_F * 0.6f
         val arcPath = Path().apply {
             addArc(
                 Rect(
@@ -252,14 +256,14 @@ private fun DrawScope.drawThinking(
                     centerX + animatedRadius * 1.2f,
                     centerY + animatedRadius * 1.2f
                 ),
-                (arcStart * 180f / PI) % 360f,
-                arcSweep * 180f / PI
+                (arcStart * 180f / PI_F) % 360f,
+                arcSweep * 180f / PI_F
             )
         }
         drawPath(
             arcPath,
             Color(0xFF00E5FF).copy(alpha = 0.7f),
-            style = Paint.Style.Stroke,
+            style = DrawStyle.Stroke,
             strokeWidth = 4f
         )
     }
@@ -398,6 +402,7 @@ private fun DrawScope.drawConfirm(
 ) {
     val animatedRadius = baseRadius * scale
     val bloomRadius = animatedRadius * (1f + bloomPhase * 0.5f)
+    val PI_F = PI.toFloat()
 
     // Bloom expansion
     val outerRadius = bloomRadius + 48f
@@ -440,7 +445,7 @@ private fun DrawScope.drawConfirm(
     if (sparklePhase < 1f) {
         val sparkleAlpha = (1f - sparklePhase) * 0.9f
         for (i in 0..7) {
-            val angle = (i * 2f * PI / 8f) + (sparklePhase * PI * 0.5f)
+            val angle = (i * 2f * PI_F / 8f) + (sparklePhase * PI_F * 0.5f)
             val distance = bloomRadius + (sparklePhase * 40f)
             val x = centerX + cos(angle) * distance
             val y = centerY + sin(angle) * distance
@@ -462,7 +467,7 @@ fun rememberNeutralAnimation(): Float {
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1500, easing = Easing.InOut),
+            animation = tween(1500, easing = Easing(0.4f, 0.0f, 0.2f, 1.0f)),
             repeatMode = RepeatMode.Reverse
         ),
         label = "breath"
