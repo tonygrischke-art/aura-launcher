@@ -81,8 +81,8 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:$lifecycleVersion")
     implementation("androidx.core:core-ktx:$coreKtxVersion")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:$coroutinesVersion")
-    // Material icons for Icons.Filled.Settings
-    implementation("androidx.compose.material:material-icons-extended")
+    // Material3 icons for Icons.Filled.Settings
+    implementation("androidx.compose.material3:material-icons-extended")
     // Material Components for View-based themes
     implementation("com.google.android.material:material:1.12.0")
 

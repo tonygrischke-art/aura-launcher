@@ -22,9 +22,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.Snapshot
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
@@ -34,11 +32,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.RadialGradient
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.drawCircle
-import androidx.compose.ui.graphics.drawscope.drawPath
-import androidx.compose.ui.graphics.drawscope.drawRect
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.px
 import androidx.compose.ui.util.lerp
 import androidx.compose.foundation.layout.fillMaxSize
 import kotlinx.coroutines.delay
@@ -113,7 +107,7 @@ private fun DrawScope.drawNeutral(
         center = Offset(centerX, centerY),
         radius = outerRadius
     )
-    drawCircle(outerBrush, centerX, centerY, outerRadius)
+    drawCircle(outerBrush, radius = outerRadius, center = Offset(centerX, centerY))
 
     // Inner glow
     val innerRadius = animatedRadius + 12f
@@ -125,7 +119,7 @@ private fun DrawScope.drawNeutral(
         center = Offset(centerX, centerY),
         radius = innerRadius
     )
-    drawCircle(innerBrush, centerX, centerY, innerRadius)
+    drawCircle(innerBrush, radius = innerRadius, center = Offset(centerX, centerY))
 
     // Core orb
     val coreBrush = Brush.radialGradient(
@@ -136,7 +130,7 @@ private fun DrawScope.drawNeutral(
         center = Offset(centerX, centerY),
         radius = animatedRadius
     )
-    drawCircle(coreBrush, centerX, centerY, animatedRadius)
+    drawCircle(coreBrush, radius = animatedRadius, center = Offset(centerX, centerY))
 }
 
 private fun DrawScope.drawListening(
@@ -160,7 +154,7 @@ private fun DrawScope.drawListening(
         center = Offset(centerX, centerY),
         radius = outerRadius
     )
-    drawCircle(outerBrush, centerX, centerY, outerRadius)
+    drawCircle(outerBrush, radius = outerRadius, center = Offset(centerX, centerY))
 
     // Inner glow
     val innerRadius = animatedRadius + 12f
@@ -172,7 +166,7 @@ private fun DrawScope.drawListening(
         center = Offset(centerX, centerY),
         radius = innerRadius
     )
-    drawCircle(innerBrush, centerX, centerY, innerRadius)
+    drawCircle(innerBrush, radius = innerRadius, center = Offset(centerX, centerY))
 
     // Ripple ring
     if (rippleAlpha > 0) {
@@ -184,7 +178,7 @@ private fun DrawScope.drawListening(
             center = Offset(centerX, centerY),
             radius = rippleRadius
         )
-        drawCircle(rippleBrush, centerX, centerY, rippleRadius)
+        drawCircle(rippleBrush, radius = rippleRadius, center = Offset(centerX, centerY))
     }
 
     // Core orb
@@ -196,7 +190,7 @@ private fun DrawScope.drawListening(
         center = Offset(centerX, centerY),
         radius = animatedRadius
     )
-    drawCircle(coreBrush, centerX, centerY, animatedRadius)
+    drawCircle(coreBrush, radius = animatedRadius, center = Offset(centerX, centerY))
 }
 
 private fun DrawScope.drawThinking(
@@ -220,7 +214,7 @@ private fun DrawScope.drawThinking(
         center = Offset(centerX, centerY),
         radius = outerRadius
     )
-    drawCircle(outerBrush, centerX, centerY, outerRadius)
+    drawCircle(outerBrush, radius = outerRadius, center = Offset(centerX, centerY))
 
     // Inner glow
     val innerRadius = animatedRadius + 12f
@@ -233,7 +227,7 @@ private fun DrawScope.drawThinking(
         center = Offset(centerX, centerY),
         radius = innerRadius
     )
-    drawCircle(innerBrush, centerX, centerY, innerRadius)
+    drawCircle(innerBrush, radius = innerRadius, center = Offset(centerX, centerY))
 
     // Core orb with rotation indicator (three arcs)
     val coreBrush = Brush.radialGradient(
@@ -244,7 +238,7 @@ private fun DrawScope.drawThinking(
         center = Offset(centerX, centerY),
         radius = animatedRadius
     )
-    drawCircle(coreBrush, centerX, centerY, animatedRadius)
+    drawCircle(coreBrush, radius = animatedRadius, center = Offset(centerX, centerY))
 
     // Three rotating arcs
     for (i in 0..2) {
@@ -291,7 +285,7 @@ private fun DrawScope.drawSpeaking(
         center = Offset(centerX, centerY),
         radius = outerRadius
     )
-    drawCircle(outerBrush, centerX, centerY, outerRadius)
+    drawCircle(outerBrush, radius = outerRadius, center = Offset(centerX, centerY))
 
     // Inner glow
     val innerRadius = animatedRadius + 12f
@@ -303,7 +297,7 @@ private fun DrawScope.drawSpeaking(
         center = Offset(centerX, centerY),
         radius = innerRadius
     )
-    drawCircle(innerBrush, centerX, centerY, innerRadius)
+    drawCircle(innerBrush, radius = innerRadius, center = Offset(centerX, centerY))
 
     // Core orb - vertically stretched based on mouthOpen
     val coreBrush = Brush.radialGradient(
@@ -364,7 +358,7 @@ private fun DrawScope.drawError(
         center = Offset(centerX, centerY),
         radius = outerRadius
     )
-    drawCircle(outerBrush, centerX, centerY, outerRadius)
+    drawCircle(outerBrush, radius = outerRadius, center = Offset(centerX, centerY))
 
     // Inner glow
     val innerRadius = animatedRadius + 12f
@@ -378,7 +372,7 @@ private fun DrawScope.drawError(
         center = Offset(centerX, centerY),
         radius = innerRadius
     )
-    drawCircle(innerBrush, centerX, centerY, innerRadius)
+    drawCircle(innerBrush, radius = innerRadius, center = Offset(centerX, centerY))
 
     // Core orb - red tinted
     val coreColor = if (flashAlpha > 0) {
@@ -391,7 +385,7 @@ private fun DrawScope.drawError(
         center = Offset(centerX, centerY),
         radius = animatedRadius
     )
-    drawCircle(coreBrush, centerX, centerY, animatedRadius)
+    drawCircle(coreBrush, radius = animatedRadius, center = Offset(centerX, centerY))
 }
 
 private fun DrawScope.drawConfirm(
@@ -416,7 +410,7 @@ private fun DrawScope.drawConfirm(
         center = Offset(centerX, centerY),
         radius = outerRadius
     )
-    drawCircle(outerBrush, centerX, centerY, outerRadius)
+    drawCircle(outerBrush, radius = outerRadius, center = Offset(centerX, centerY))
 
     // Inner glow
     val innerRadius = bloomRadius + 12f
@@ -429,7 +423,7 @@ private fun DrawScope.drawConfirm(
         center = Offset(centerX, centerY),
         radius = innerRadius
     )
-    drawCircle(innerBrush, centerX, centerY, innerRadius)
+    drawCircle(innerBrush, radius = innerRadius, center = Offset(centerX, centerY))
 
     // Core orb
     val coreBrush = Brush.radialGradient(
@@ -440,7 +434,7 @@ private fun DrawScope.drawConfirm(
         center = Offset(centerX, centerY),
         radius = bloomRadius
     )
-    drawCircle(coreBrush, centerX, centerY, bloomRadius)
+    drawCircle(coreBrush, radius = bloomRadius, center = Offset(centerX, centerY))
 
     // Sparkle particles (one-shot)
     if (sparklePhase < 1f) {
@@ -453,7 +447,8 @@ private fun DrawScope.drawConfirm(
             val sparkleSize = (1f - sparklePhase) * 6f + 2f
             drawCircle(
                 Color.White.copy(alpha = sparkleAlpha),
-                x, y, sparkleSize
+                radius = sparkleSize,
+                center = Offset(x, y)
             )
         }
     }
