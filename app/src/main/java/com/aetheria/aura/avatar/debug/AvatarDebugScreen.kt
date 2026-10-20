@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.align
 import androidx.compose.material3.Button
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -49,9 +48,9 @@ fun AvatarDebugScreen(
         modifier = Modifier
             .fillMaxWidth()
             .height(300.dp)
-            .align(Alignment.BottomCenter)
             .background(Color(0xCC000000))
             .padding(16.dp)
+        contentAlignment = Alignment.BottomCenter
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),

@@ -20,16 +20,19 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.Snapshot
+import androidx.compose.runtime.snapshots.Snapshot
+import androidx.compose.runtime.snapshots.Snapshot.Companion.sendApplyNotifications
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.PaintStyle
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.Rect
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.RadialGradient
 import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.geometry.Offset
@@ -39,6 +42,7 @@ import androidx.compose.ui.graphics.drawscope.drawRect
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.px
 import androidx.compose.ui.util.lerp
+import androidx.compose.foundation.layout.fillMaxSize
 import kotlinx.coroutines.delay
 import kotlin.math.PI
 import kotlin.math.cos
@@ -266,7 +270,7 @@ private fun drawThinking(
         drawPath(
             arcPath,
             Color(0xFF00E5FF).copy(alpha = 0.7f),
-            style = Paint.Style.Stroke,
+            style = PaintStyle.Stroke,
             strokeWidth = 4f
         )
     }
@@ -532,7 +536,7 @@ fun rememberErrorAnimation(): Pair<Float, Float> {
             while (flashPhase < 1f) {
                 val elapsed = (SystemClock.uptimeMillis() - startTime) / 1000f
                 flashPhase = min(elapsed / 0.2f, 1f)
-                Snapshot.sendApplyNotifications()
+                sendApplyNotifications()
                 kotlinx.coroutines.delay(16)
             }
             // Dim phase: 1000ms
@@ -540,7 +544,7 @@ fun rememberErrorAnimation(): Pair<Float, Float> {
             while (dimPhase < 1f) {
                 val elapsed = (SystemClock.uptimeMillis() - dimStart) / 1000f
                 dimPhase = min(elapsed / 1.0f, 1f)
-                Snapshot.sendApplyNotifications()
+                sendApplyNotifications()
                 kotlinx.coroutines.delay(16)
             }
         }
@@ -563,7 +567,7 @@ fun rememberConfirmAnimation(): Pair<Float, Float> {
             while (bloomPhase < 1f) {
                 val elapsed = (SystemClock.uptimeMillis() - startTime) / 1000f
                 bloomPhase = min(elapsed / 0.6f, 1f)
-                Snapshot.sendApplyNotifications()
+                sendApplyNotifications()
                 kotlinx.coroutines.delay(16)
             }
             // Sparkle: 200ms
@@ -571,7 +575,7 @@ fun rememberConfirmAnimation(): Pair<Float, Float> {
             while (sparklePhase < 1f) {
                 val elapsed = (SystemClock.uptimeMillis() - sparkleStart) / 1000f
                 sparklePhase = min(elapsed / 0.2f, 1f)
-                Snapshot.sendApplyNotifications()
+                sendApplyNotifications()
                 kotlinx.coroutines.delay(16)
             }
         }
