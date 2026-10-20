@@ -5,11 +5,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -120,17 +118,16 @@ fun MainScreen() {
         }
 
         // Small toggle button in corner
-        IconButton(
+        Button(
             onClick = { showDebug = true },
             modifier = Modifier
                 .padding(16.dp)
                 .align(Alignment.TopEnd)
         ) {
-            Icon(
-                imageVector = Settings,
-                contentDescription = "Debug",
-                tint = Color.White.copy(alpha = 0.7f),
-                modifier = Modifier.size(28.dp)
+            Text(
+                text = "⚙",
+                fontSize = 24.sp,
+                color = Color.White.copy(alpha = 0.7f)
             )
         }
     }
