@@ -13,7 +13,6 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.VectorConverter
 import androidx.compose.foundation.Canvas
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -21,7 +20,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.Snapshot
-import androidx.compose.runtime.snapshots.Snapshot.Companion.sendApplyNotifications
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.BlendMode
@@ -29,7 +27,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.Paint
-import androidx.compose.ui.graphics.PaintStyle
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.geometry.Rect
@@ -96,7 +93,6 @@ fun OrbRenderer(
     }
 }
 
-@Composable
 private fun drawNeutral(
     centerX: Float,
     centerY: Float,
@@ -142,7 +138,6 @@ private fun drawNeutral(
     drawCircle(coreBrush, centerX, centerY, animatedRadius)
 }
 
-@Composable
 private fun drawListening(
     centerX: Float,
     centerY: Float,
@@ -203,7 +198,6 @@ private fun drawListening(
     drawCircle(coreBrush, centerX, centerY, animatedRadius)
 }
 
-@Composable
 private fun drawThinking(
     centerX: Float,
     centerY: Float,
@@ -270,13 +264,12 @@ private fun drawThinking(
         drawPath(
             arcPath,
             Color(0xFF00E5FF).copy(alpha = 0.7f),
-            style = PaintStyle.Stroke,
+            style = Paint.Style.Stroke,
             strokeWidth = 4f
         )
     }
 }
 
-@Composable
 private fun drawSpeaking(
     centerX: Float,
     centerY: Float,
@@ -338,7 +331,6 @@ private fun drawSpeaking(
     drawPath(path, coreBrush)
 }
 
-@Composable
 private fun drawError(
     centerX: Float,
     centerY: Float,
@@ -401,7 +393,6 @@ private fun drawError(
     drawCircle(coreBrush, centerX, centerY, animatedRadius)
 }
 
-@Composable
 private fun drawConfirm(
     centerX: Float,
     centerY: Float,
@@ -536,7 +527,7 @@ fun rememberErrorAnimation(): Pair<Float, Float> {
             while (flashPhase < 1f) {
                 val elapsed = (SystemClock.uptimeMillis() - startTime) / 1000f
                 flashPhase = min(elapsed / 0.2f, 1f)
-                sendApplyNotifications()
+                Snapshot.sendApplyNotifications()
                 kotlinx.coroutines.delay(16)
             }
             // Dim phase: 1000ms
@@ -544,7 +535,7 @@ fun rememberErrorAnimation(): Pair<Float, Float> {
             while (dimPhase < 1f) {
                 val elapsed = (SystemClock.uptimeMillis() - dimStart) / 1000f
                 dimPhase = min(elapsed / 1.0f, 1f)
-                sendApplyNotifications()
+                Snapshot.sendApplyNotifications()
                 kotlinx.coroutines.delay(16)
             }
         }
@@ -567,7 +558,7 @@ fun rememberConfirmAnimation(): Pair<Float, Float> {
             while (bloomPhase < 1f) {
                 val elapsed = (SystemClock.uptimeMillis() - startTime) / 1000f
                 bloomPhase = min(elapsed / 0.6f, 1f)
-                sendApplyNotifications()
+                Snapshot.sendApplyNotifications()
                 kotlinx.coroutines.delay(16)
             }
             // Sparkle: 200ms
@@ -575,7 +566,7 @@ fun rememberConfirmAnimation(): Pair<Float, Float> {
             while (sparklePhase < 1f) {
                 val elapsed = (SystemClock.uptimeMillis() - sparkleStart) / 1000f
                 sparklePhase = min(elapsed / 0.2f, 1f)
-                sendApplyNotifications()
+                Snapshot.sendApplyNotifications()
                 kotlinx.coroutines.delay(16)
             }
         }
