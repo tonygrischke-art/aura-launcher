@@ -1,12 +1,11 @@
 package com.aetheria.aura
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Slider
+import androidx.compose.material3.TextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -17,19 +16,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.background
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.layout.contentPadding
+import androidx.compose.ui.side effects
 import com.aetheria.aura.avatar.AvatarState
 import com.aetheria.aura.avatar.OrbRenderer
 import com.aetheria.aura.avatar.debug.AvatarDebugScreen
@@ -75,6 +75,7 @@ fun AuraTheme(content: @Composable () -> Unit) {
 fun MainScreen() {
     var showDebug by remember { mutableStateOf(false) }
     var avatarState by remember { mutableStateOf<AvatarState>(AvatarState.Neutral()) }
+    var textInput by remember { mutableStateOf("") }
     var mouthOpen by remember { mutableStateOf(0.0f) }
 
     // Animation values for each state
@@ -129,6 +130,47 @@ fun MainScreen() {
                 fontSize = 24.sp,
                 color = Color.White.copy(alpha = 0.7f)
             )
+        }
+
+        // Input area under the orb
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+                .align(Alignment.BottomStart),
+            verticalArrangement = Arrangement.End,
+            horizontalAlignment = Alignment.Start
+        ) {
+            TextField(
+                value = textInput,
+                onValueChange = { textInput = it },
+                modifier = Modifier
+                    .fillMaxWidth(0.8f)
+                    .height(48.dp),
+                placeholder = "Tell Aura...",
+                singleLine = true,
+                capitalization = TextCapitalization.sentences
+            )
+
+            Button(
+                onClick = {
+                    avatarState = AvatarState.Thinking
+                    // Wait 1s, then set back to Neutral
+                    delay(1000)
+                    avatarState = AvatarState.Neutral
+                },
+                modifier = Modifier
+                    .width(80.dp)
+                    .height(48.dp)
+                    .align(Alignment.End),
+                style = ButtonStyle.FilledTonal
+            ) {
+                Text(
+                    text = "Send",
+                    fontSize = 14.sp,
+                    color = Color.Black
+                )
+            }
         }
     }
 }
