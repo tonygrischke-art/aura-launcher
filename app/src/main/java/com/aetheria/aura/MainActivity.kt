@@ -3,8 +3,6 @@ package com.aetheria.aura
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -19,33 +17,27 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.background
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.layout.contentPadding
-import androidx.compose.ui.side effects
-import com.aetheria.aura.avatar.AvatarState
-import com.aetheria.aura.avatar.OrbRenderer
-import com.aetheria.aura.avatar.debug.AvatarDebugScreen
-import com.aetheria.aura.avatar.rememberNeutralAnimation
-import com.aetheria.aura.avatar.rememberListeningAnimation
-import com.aetheria.aura.avatar.rememberThinkingAnimation
-import com.aetheria.aura.avatar.rememberSpeakingAnimation
-import com.aetheria.aura.avatar.rememberErrorAnimation
-import com.aetheria.aura.avatar.rememberConfirmAnimation
+import androidx.compose.foundation.background
+import androidx.compose.ui.text.font.FontWeight
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import com.aetheria.aura.net.HermesClient
+import com.aetheria.aura.actions.AuraAction
+import com.aetheria.aura.actions.ActionExecutor
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             AuraTheme {
-                MainScreen()
+                MainScreen(packageManager)
             }
         }
     }
@@ -72,103 +64,101 @@ fun AuraTheme(content: @Composable () -> Unit) {
 }
 
 @Composable
-fun MainScreen() {
-    var showDebug by remember { mutableStateOf(false) }
-    var avatarState by remember { mutableStateOf<AvatarState>(AvatarState.Neutral()) }
-    var textInput by remember { mutableStateOf("") }
-    var mouthOpen by remember { mutableStateOf(0.0f) }
+fun MainScreen(pm: android.content.pm.PackageManager) {
+    var commandInput by remember { mutableStateOf("") }
+    var responseText by remember { mutableStateOf("") }
+    var isProcessing by remember { mutableStateOf(false) }
 
-    // Animation values for each state
-    val breathPhase = rememberNeutralAnimation()
-    val ripplePhase = rememberListeningAnimation()
-    val rotationDegrees = rememberThinkingAnimation()
-    val smoothedMouthOpen = rememberSpeakingAnimation(mouthOpen)
-    val (flashPhase, dimPhase) = rememberErrorAnimation()
-    val (bloomPhase, sparklePhase) = rememberConfirmAnimation()
+    val scope = rememberCoroutineScope()
 
-    // Update avatarState with animation values
-    val currentState = avatarState
-    val animatedState: AvatarState = remember(currentState, breathPhase, ripplePhase, rotationDegrees, smoothedMouthOpen, flashPhase, dimPhase, bloomPhase, sparklePhase) {
-        when (currentState) {
-            is AvatarState.Neutral -> currentState.copy(breathPhase = breathPhase)
-            is AvatarState.Listening -> currentState.copy(ripplePhase = ripplePhase)
-            is AvatarState.Thinking -> currentState.copy(rotationDegrees = rotationDegrees, violetShift = (rotationDegrees % 360f) / 360f)
-            is AvatarState.Speaking -> currentState.copy(mouthOpen = smoothedMouthOpen, scale = 1f + smoothedMouthOpen * 0.3f)
-            is AvatarState.Error -> currentState.copy(flashPhase = flashPhase, dimPhase = dimPhase)
-            is AvatarState.Confirm -> currentState.copy(bloomPhase = bloomPhase, sparklePhase = sparklePhase)
-        }
-    }
-
-    Box(modifier = Modifier.fillMaxSize()) {
-        // Orb renderer fills the screen
-        OrbRenderer(
-            state = animatedState,
-            mouthOpen = smoothedMouthOpen,
-            modifier = Modifier.fillMaxSize()
-        )
-
-        // Debug screen overlay
-        if (showDebug) {
-            AvatarDebugScreen(
-                onClose = { showDebug = false },
-                currentState = avatarState,
-                onStateChange = { avatarState = it },
-                mouthOpen = mouthOpen,
-                onMouthOpenChange = { mouthOpen = it }
-            )
-        }
-
-        // Small toggle button in corner
-        Button(
-            onClick = { showDebug = true },
-            modifier = Modifier
-                .padding(16.dp)
-                .align(Alignment.TopEnd)
-        ) {
-            Text(
-                text = "⚙",
-                fontSize = 24.sp,
-                color = Color.White.copy(alpha = 0.7f)
-            )
-        }
-
-        // Input area under the orb
-        Column(
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Response area
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .weight(1f)
                 .padding(16.dp)
-                .align(Alignment.BottomStart),
-            verticalArrangement = Arrangement.End,
-            horizontalAlignment = Alignment.Start
+                .background(Color(0xFF1A1A1A))
+        ) {
+            androidx.compose.foundation.text.BasicText(
+                text = androidx.compose.ui.text.AnnotatedString(
+                    text = if (responseText.isNotBlank()) responseText else "Awaiting command...",
+                    style = androidx.compose.ui.text.SpanStyle(
+                        color = Color.White.copy(alpha = 0.8f),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Normal
+                    )
+                ),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+                    .align(Alignment.TopStart)
+            )
+        }
+
+        // Command input field
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             TextField(
-                value = textInput,
-                onValueChange = { textInput = it },
+                value = commandInput,
+                onValueChange = { commandInput = it },
                 modifier = Modifier
-                    .fillMaxWidth(0.8f)
-                    .height(48.dp),
-                placeholder = "Tell Aura...",
+                    .fillMaxWidth()
+                    .height(56.dp),
+                placeholder = { Text("Command", color = Color.White.copy(alpha = 0.4f)) },
                 singleLine = true,
-                capitalization = TextCapitalization.sentences
+                colors = androidx.compose.material3.TextFieldDefaults.textFieldColors(
+                    containerColor = Color(0xFF1A1A1A),
+                    focusedContainerColor = Color(0xFF222222),
+                    textColor = Color.White,
+                    placeholderTextColor = Color.White.copy(alpha = 0.4f),
+                    cursorColor = Color(0xFF00E5FF),
+                    disabledTextColor = Color.White.copy(alpha = 0.3f),
+                    disabledContainerColor = Color(0xFF1A1A1A)
+                )
             )
 
             Button(
                 onClick = {
-                    avatarState = AvatarState.Thinking
-                    // Wait 1s, then set back to Neutral
-                    delay(1000)
-                    avatarState = AvatarState.Neutral
+                    if (commandInput.isNotBlank() && !isProcessing) {
+                        val cmd = commandInput
+                        commandInput = ""
+                        isProcessing = true
+                        responseText = "Processing..."
+                        scope.launch(Dispatchers.IO) {
+                            val result = HermesClient.send(cmd)
+                            val execResult = ActionExecutor.execute(result, pm)
+                            scope.launch(Dispatchers.Main) {
+                                responseText = when (result) {
+                                    is AuraAction.OpenApp -> if (execResult == "confirm") "Opened $cmd" else "App not found: ${result.target}"
+                                    else -> "Unknown command: $cmd"
+                                }
+                                isProcessing = false
+                            }
+                        }
+                    }
                 },
                 modifier = Modifier
                     .width(80.dp)
-                    .height(48.dp)
-                    .align(Alignment.End),
-                style = ButtonStyle.FilledTonal
+                    .height(56.dp),
+                enabled = !isProcessing,
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                    containerColor = if (isProcessing) Color(0xFF333333) else Color(0xFF00E5FF),
+                    contentColor = Color.Black
+                )
             ) {
                 Text(
-                    text = "Send",
+                    text = if (isProcessing) "..." else "Send",
                     fontSize = 14.sp,
-                    color = Color.Black
+                    fontWeight = FontWeight.Bold
                 )
             }
         }

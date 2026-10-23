@@ -9,7 +9,7 @@ import java.io.BufferedReader
 import java.net.URL
 import java.nio.charset.StandardCharsets
 
-const val AURA_HOST = "http://TAILSCALE_IP:8080/command"
+const val AURA_HOST = "http://localhost:8766/command"
 
  suspend fun send(command: String): AuraAction {
     return withContext(Dispatchers.IO) {
