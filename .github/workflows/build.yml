@@ -1,0 +1,51 @@
+name: Build and Release Debug APK
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: aura-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-release:
+    name: Assemble debug APK and publish release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Build debug APK (auto-signed with debug keystore)
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Publish APK to GitHub Release (tag = short commit hash)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          SHORT="${GITHUB_SHA::7}"
+          TAG="aura-$SHORT"
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          test -f "$APK"
+          mv "$APK" "aura-debug-$SHORT.apk"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "aura-debug-$SHORT.apk" --clobber
+          else
+            gh release create "$TAG" "aura-debug-$SHORT.apk" --target "$GITHUB_SHA" \
+              --title "Aura $SHORT" \
+              --notes "Debug build from commit $SHORT (CI-assembled, debug-signed). Asset: aura-debug-$SHORT.apk"
+          fi
