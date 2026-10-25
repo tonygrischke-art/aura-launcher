@@ -91,7 +91,7 @@ fun MainScreen(pm: android.content.pm.PackageManager) {
         ) {
             androidx.compose.foundation.text.BasicText(
                 text = androidx.compose.ui.text.buildAnnotatedString {
-                    androidx.compose.ui.text.withStyle(
+                    withStyle(
                         androidx.compose.ui.text.SpanStyle(
                             color = Color.White.copy(alpha = 0.8f),
                             fontSize = 16.sp,
