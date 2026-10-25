@@ -2,7 +2,6 @@ package com.aetheria.aura.actions
 
 import android.content.Intent
 import android.content.pm.PackageManager
-import androidx.compose.ui.unit.dp
 import com.aetheria.aura.actions.AuraAction.OpenApp
 import com.aetheria.aura.net.HermesClient
 
@@ -28,7 +27,7 @@ object ActionExecutor {
                 var foundMatch = false
 
                 for (pkg in packages) {
-                    val label = pkg.applicationInfo.loadLabel(pm).toString().lowercase()
+                    val label = pkg.applicationInfo?.loadLabel(pm)?.toString()?.lowercase() ?: continue
                     if (label.contains(targetLower)) {
                         val intent = pm.getLaunchIntentForPackage(pkg.packageName)
                         if (intent != null) {

@@ -31,6 +31,10 @@ import kotlinx.coroutines.launch
 import com.aetheria.aura.net.HermesClient
 import com.aetheria.aura.actions.AuraAction
 import com.aetheria.aura.actions.ActionExecutor
+import androidx.activity.ComponentActivity
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Row
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -115,11 +119,13 @@ fun MainScreen(pm: android.content.pm.PackageManager) {
                     .height(56.dp),
                 placeholder = { Text("Command", color = Color.White.copy(alpha = 0.4f)) },
                 singleLine = true,
-                colors = androidx.compose.material3.TextFieldDefaults.textFieldColors(
-                    containerColor = Color(0xFF1A1A1A),
+                colors = androidx.compose.material3.TextFieldDefaults.colors(
+                    unfocusedContainerColor = Color(0xFF1A1A1A),
                     focusedContainerColor = Color(0xFF222222),
-                    textColor = Color.White,
-                    placeholderTextColor = Color.White.copy(alpha = 0.4f),
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White,
+                    focusedPlaceholderColor = Color.White.copy(alpha = 0.4f),
+                    unfocusedPlaceholderColor = Color.White.copy(alpha = 0.4f),
                     cursorColor = Color(0xFF00E5FF),
                     disabledTextColor = Color.White.copy(alpha = 0.3f),
                     disabledContainerColor = Color(0xFF1A1A1A)

@@ -20,7 +20,7 @@ sealed class AuraAction {
     companion object {
         @JvmStatic
         fun parse(json: String): AuraAction {
-            try {
+            return try {
                 val obj = JSONObject(json)
                 val action = obj.getString("action")
                 val args = obj.optJSONObject("args")
