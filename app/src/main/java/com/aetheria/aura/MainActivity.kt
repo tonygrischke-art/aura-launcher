@@ -90,14 +90,17 @@ fun MainScreen(pm: android.content.pm.PackageManager) {
                 .background(Color(0xFF1A1A1A))
         ) {
             androidx.compose.foundation.text.BasicText(
-                text = androidx.compose.ui.text.AnnotatedString(
-                    text = if (responseText.isNotBlank()) responseText else "Awaiting command...",
-                    style = androidx.compose.ui.text.SpanStyle(
-                        color = Color.White.copy(alpha = 0.8f),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Normal
-                    )
-                ),
+                text = androidx.compose.ui.text.buildAnnotatedString {
+                    androidx.compose.ui.text.withStyle(
+                        androidx.compose.ui.text.SpanStyle(
+                            color = Color.White.copy(alpha = 0.8f),
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Normal
+                        )
+                    ) {
+                        append(if (responseText.isNotBlank()) responseText else "Awaiting command...")
+                    }
+                },
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(16.dp)
