@@ -18,6 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.alpha
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
@@ -66,6 +67,30 @@ fun VideoOrb(
     var pendingMood by remember { mutableStateOf<AuraMood?>(null) }
     var isCrossfading by remember { mutableStateOf(false) }
     var playerAIsCurrent by remember { mutableStateOf(true) }
+
+    // Crossfade function - stored in mutableState to be accessible from LaunchedEffect
+    var startCrossfade by remember { mutableStateOf<AuraMood.() -> Unit>({}) }
+    startCrossfade = { newMood: AuraMood ->
+        pendingMood = newMood
+        isCrossfading = true
+
+        val nextPlayer = if (playerAIsCurrent) playerB else playerA
+        val clipRes = when (newMood) {
+            AuraMood.IDLE -> R.raw.aura_idle
+            AuraMood.LISTENING -> R.raw.aura_listening
+            AuraMood.THINKING -> R.raw.aura_thinking
+            AuraMood.ACTING -> R.raw.aura_acting
+        }
+        val uri = RawResourceDataSource.buildRawResourceUri(clipRes)
+        val mediaItem = MediaItem.fromUri(uri)
+
+        nextPlayer.setMediaItem(mediaItem)
+        nextPlayer.prepare()
+        nextPlayer.seekTo(0)
+        nextPlayer.playWhenReady = false
+        nextPlayer.repeatMode = ExoPlayer.REPEAT_MODE_ONE
+        nextPlayer.volume = 0f
+    }
 
     // Release players on dispose
     DisposableEffect(Unit) {
@@ -128,29 +153,6 @@ fun VideoOrb(
                 startCrossfade(pendingMood!!)
             }
         }
-    }
-
-    // Preload and start crossfade
-    fun startCrossfade(newMood: AuraMood) {
-        pendingMood = newMood
-        isCrossfading = true
-
-        val nextPlayer = if (playerAIsCurrent) playerB else playerA
-        val clipRes = when (newMood) {
-            AuraMood.IDLE -> R.raw.aura_idle
-            AuraMood.LISTENING -> R.raw.aura_listening
-            AuraMood.THINKING -> R.raw.aura_thinking
-            AuraMood.ACTING -> R.raw.aura_acting
-        }
-        val uri = RawResourceDataSource.buildRawResourceUri(clipRes)
-        val mediaItem = MediaItem.fromUri(uri)
-
-        nextPlayer.setMediaItem(mediaItem)
-        nextPlayer.prepare()
-        nextPlayer.seekTo(0)
-        nextPlayer.playWhenReady = false
-        nextPlayer.repeatMode = ExoPlayer.REPEAT_MODE_ONE
-        nextPlayer.volume = 0f
     }
 
     // Render two TextureViews stacked with cross-fade
