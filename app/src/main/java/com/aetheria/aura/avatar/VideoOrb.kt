@@ -18,7 +18,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.alpha
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
@@ -167,7 +166,7 @@ fun VideoOrb(
             factory = { textureViewA },
             modifier = Modifier
                 .fillMaxSize()
-                .alpha(1f - crossfadeAlpha)
+                .graphicsLayer { alpha = 1f - crossfadeAlpha }
         )
 
         // Player B (top when crossfading in)
@@ -175,7 +174,7 @@ fun VideoOrb(
             factory = { textureViewB },
             modifier = Modifier
                 .fillMaxSize()
-                .alpha(crossfadeAlpha)
+                .graphicsLayer { alpha = crossfadeAlpha }
         )
     }
 
