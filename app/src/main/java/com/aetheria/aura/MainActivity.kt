@@ -1,10 +1,22 @@
 package com.aetheria.aura
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.compose.setContent
+import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Button
-import androidx.compose.material3.TextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -13,31 +25,28 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.detectTapGestures
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.background
 import androidx.compose.ui.text.font.FontWeight
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import com.aetheria.aura.net.HermesClient
-import com.aetheria.aura.actions.AuraAction
 import com.aetheria.aura.actions.ActionExecutor
+import com.aetheria.aura.actions.AuraAction
+import com.aetheria.aura.avatar.AvatarState
+import com.aetheria.aura.avatar.VideoOrb
+import com.aetheria.aura.net.HermesClient
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             AuraTheme {
-                MainScreen(packageManager)
+                MainScreen(packageManager, lifecycle)
             }
         }
     }
@@ -64,24 +73,52 @@ fun AuraTheme(content: @Composable () -> Unit) {
 }
 
 @Composable
-fun MainScreen(pm: android.content.pm.PackageManager) {
+fun MainScreen(pm: android.content.pm.PackageManager, lifecycle: Lifecycle) {
     var commandInput by remember { mutableStateOf("") }
     var responseText by remember { mutableStateOf("") }
     var isProcessing by remember { mutableStateOf(false) }
+    var orbState by remember { mutableStateOf<AvatarState>(AvatarState.Neutral()) }
+    var debugStateIndex by remember { mutableStateOf(0) }
+
+    val debugStates = listOf(
+        AvatarState.Neutral(),
+        AvatarState.Listening(),
+        AvatarState.Thinking(),
+        AvatarState.Acting(),
+    )
 
     val scope = rememberCoroutineScope()
 
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(Color.Black)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Response area
+        // Video Orb - centered, takes most of the screen
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
+                .fillMaxHeight(0.7f)
+                .pointerInput(Unit) {
+                    detectTapGestures(onTap = {
+                        // Debug: cycle through states on tap
+                        debugStateIndex = (debugStateIndex + 1) % debugStates.size
+                        orbState = debugStates[debugStateIndex]
+                        Log.d("AuraDebug", "Orb state: ${orbState::class.simpleName}")
+                    })
+                }
+        ) {
+            VideoOrb(state = orbState, lifecycleOwner = this@MainScreen as? androidx.lifecycle.LifecycleOwner)
+        }
+
+        // Response area
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(120.dp)
                 .padding(16.dp)
                 .background(Color(0xFF1A1A1A))
         ) {
@@ -102,10 +139,10 @@ fun MainScreen(pm: android.content.pm.PackageManager) {
         }
 
         // Command input field
-        Row(
+        androidx.compose.foundation.layout.Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp)
         ) {
             TextField(
                 value = commandInput,
