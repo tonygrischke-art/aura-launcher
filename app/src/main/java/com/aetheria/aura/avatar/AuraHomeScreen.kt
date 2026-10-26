@@ -1,5 +1,6 @@
 package com.aetheria.aura.avatar
 
+import android.content.pm.ApplicationInfo
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -23,6 +24,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -65,7 +68,24 @@ fun AuraHomeScreen(
 
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
             val side = minOf(maxWidth, maxHeight)
-            AuraFigure(mood, Modifier.size(side))
+            val debuggable = (LocalContext.current.applicationContext.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+            var debugMood by remember { mutableStateOf(mood) }
+            VideoOrb(
+                mood = if (debuggable) debugMood else mood,
+                modifier = Modifier.size(side)
+                    .pointerInput(Unit) {
+                        if (debuggable) {
+                            detectTapGestures(onTap = {
+                                debugMood = when (debugMood) {
+                                    AuraMood.IDLE -> AuraMood.LISTENING
+                                    AuraMood.LISTENING -> AuraMood.THINKING
+                                    AuraMood.THINKING -> AuraMood.ACTING
+                                    AuraMood.ACTING -> AuraMood.IDLE
+                                }
+                            })
+                        }
+                    }
+            )
         }
 
         if (status != null) {
