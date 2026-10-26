@@ -1,14 +1,12 @@
 package com.aetheria.aura.avatar
 
-import android.app.Application
 import android.content.Context
-import android.content.pm.ApplicationInfo
-import android.net.Uri
 import android.view.TextureView
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -30,7 +28,6 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.RawResourceDataSource
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.ui.PlayerView
 import com.aetheria.aura.R
 
 @OptIn(UnstableApi::class)
@@ -78,9 +75,9 @@ fun VideoOrb(
         }
     }
 
-    // Pause/resume on lifecycle
-    LaunchedEffect(lifecycleOwner) {
-        val observer = object : DefaultLifecycleObserver {
+    // Lifecycle observer for pause/resume
+    val observer = remember {
+        object : DefaultLifecycleObserver {
             override fun onStop(owner: LifecycleOwner) {
                 playerA.pause()
                 playerB.pause()
@@ -91,6 +88,8 @@ fun VideoOrb(
                 else playerB.playWhenReady = true
             }
         }
+    }
+    DisposableEffect(lifecycleOwner) {
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
@@ -158,8 +157,7 @@ fun VideoOrb(
     Box(
         modifier = modifier
             .size(280.dp)
-            .background(Color.Black)
-            .align(Alignment.Center),
+            .background(Color.Black),
         contentAlignment = Alignment.Center
     ) {
         // Player A (bottom when crossfading out)
