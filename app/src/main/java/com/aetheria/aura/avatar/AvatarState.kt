@@ -20,10 +20,6 @@ sealed interface AvatarState {
         val scale: Float = 1f
     ) : AvatarState
 
-    data class Acting(
-        val intensity: Float = 0f
-    ) : AvatarState
-
     data class Error(
         val flashPhase: Float = 0f,
         val dimPhase: Float = 0f,
