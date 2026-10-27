@@ -91,6 +91,32 @@ fun WireOrb(
     var lastFrameTime by remember { mutableStateOf(System.nanoTime()) }
     var yawVel by remember { mutableStateOf(0.0f) }
     var pitchVel by remember { mutableStateOf(0.0f) }
+    var yaw by remember { mutableStateOf(0.0f) }
+    var pitch by remember { mutableStateOf(0.0f) }
+    var spinSpeed by remember { mutableStateOf(when (mood) {
+        AuraMood.IDLE -> 0.15f
+        AuraMood.LISTENING -> 0.2f
+        AuraMood.THINKING -> 0.5f
+        AuraMood.ACTING -> 1.0f
+    }) }
+    var cyanIntensity by remember { mutableStateOf(when (mood) {
+        AuraMood.IDLE -> 1.0f
+        AuraMood.LISTENING -> 1.3f
+        AuraMood.THINKING -> 0.8f
+        AuraMood.ACTING -> 1.5f
+    }) }
+    var violetShift by remember { mutableStateOf(when (mood) {
+        AuraMood.IDLE -> 0.0f
+        AuraMood.LISTENING -> 0.0f
+        AuraMood.THINKING -> 1.0f
+        AuraMood.ACTING -> 0.5f
+    }) }
+    var coreBreath by remember { mutableStateOf(when (mood) {
+        AuraMood.IDLE -> 1.0f
+        AuraMood.LISTENING -> 1.2f
+        AuraMood.THINKING -> 0.8f
+        AuraMood.ACTING -> 1.5f
+    }) }
 
     LaunchedEffect(lifecycleOwner) {
         repeatOnLifecycle(lifecycleOwner, Lifecycle.State.STARTED) {
