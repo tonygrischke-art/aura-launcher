@@ -141,7 +141,7 @@ object CommandRouter {
     private val OPEN_VERBS = setOf("open", "launch", "start", "run")
     private val CALL_VERBS = setOf("call", "phone", "dial")
     private val TEXT_VERBS = setOf("text", "message", "send")
-    private val SEARCH_VERBS = setOf("search", "google", "look up", "lookup")
+    private val SEARCH_VERBS = setOf("search", "google", "look up", "lookup", "what is", "what's", "weather")
 
     /**
      * Route a raw user command to an action route.
@@ -149,10 +149,8 @@ object CommandRouter {
      */
     fun route(input: String): AuraActionRoute {
         val trimmed = input.trim()
-        if (trimmed.isBlank()) return AuraActionRoute.AskHermes(trimmed)
-
-        val words = trimmed.split("\\s+".toRegex())
-        val firstWord = words.firstOrNull()?.lowercase() ?: return AuraActionRoute.AskHermes(trimmed)
+        val firstWord = trimmed.split("\\s+".toRegex()).firstOrNull()?.lowercase() ?: ""
+        if (trimmed.isBlank()) return AuraActionRoute.AskHermes(input)
 
         return when {
             firstWord in OPEN_VERBS -> {
