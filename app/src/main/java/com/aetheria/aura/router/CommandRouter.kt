@@ -168,7 +168,6 @@ object CommandRouter {
             else AuraActionRoute.WebSearch(query)
         }
 
-        val firstWord = words.firstOrNull()?.lowercase() ?: ""
         if (firstWord.isBlank()) return AuraActionRoute.AskHermes(input)
 
         return when {
