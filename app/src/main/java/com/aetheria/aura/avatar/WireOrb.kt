@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -53,7 +54,7 @@ fun WireOrb(
     var yawVel by remember { mutableStateOf(0.0f) }
     var pitchVel by remember { mutableStateOf(0.0f) }
 
-    val spinSpeed by remember {
+    val spinSpeed = remember {
         androidx.compose.animation.core.animateFloatAsState(
             targetValue = when (mood) {
                 AuraMood.IDLE -> 0.15f
@@ -197,7 +198,7 @@ fun WireOrb(
                 })
             }
     ) {
-        Canvas(modifier = androidx.compose.foundation.layout.fillMaxSize()) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
             val size = min(this.size.width, this.size.height)
             val centerX = this.size.width / 2f
             val centerY = this.size.height / 2f
