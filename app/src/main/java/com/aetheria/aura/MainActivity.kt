@@ -1,6 +1,7 @@
 package com.aetheria.aura
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.speech.RecognitionListener
@@ -34,6 +35,7 @@ import com.aetheria.aura.actions.AuraAction
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.ArrayList
 
 data class ChatMessage(
     val id: Long = System.currentTimeMillis(),
@@ -76,7 +78,7 @@ class MainActivity : ComponentActivity() {
                 var focused by remember { mutableStateOf(false) }
                 var phase by remember { mutableStateOf(AuraMood.IDLE) }
                 var status by remember { mutableStateOf<String?>(null) }
-                val messages = remember { mutableStateOf<java.util.ArrayList<ChatMessage>>(java.util.ArrayList()) }
+                val messages = remember { mutableStateOf<java.util.ArrayList<ChatMessage>>(ArrayList()) }
                 val scope = rememberCoroutineScope()
                 
                 fun addMessage(role: ChatMessage.Role, content: String) {
@@ -215,12 +217,6 @@ class MainActivity : ComponentActivity() {
                 if (matches != null && matches.isNotEmpty()) {
                     val recognizedText = matches[0]
                     Log.d("AuraMic", "Recognized: $recognizedText")
-                    // Submit the recognized text as if user typed it
-                    // We need to post to UI thread
-                    runOnUiThread {
-                        // The input will be set and submitted
-                        // For now, we'll just log it
-                    }
                 }
             }
             

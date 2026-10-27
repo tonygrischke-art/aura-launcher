@@ -4,6 +4,7 @@ import android.content.pm.ApplicationInfo
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -29,6 +30,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aetheria.aura.ChatMessage
@@ -36,6 +38,7 @@ import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.collections.takeLast
 
 enum class OrbStyle { WIRE, VIDEO }
 const val ORB_STYLE = "WIRE"
@@ -112,6 +115,7 @@ fun AuraHomeScreen(
 
         // Chat history above input
         if (messages.isNotEmpty()) {
+            val displayMessages = messages.takeLast(10)
             Column(
                 Modifier
                     .fillMaxWidth()
@@ -119,11 +123,11 @@ fun AuraHomeScreen(
                     .padding(bottom = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                androidx.compose.foundation.layout.Box(
+                Box(
                     Modifier.fillMaxSize(),
                     contentAlignment = Alignment.BottomCenter
                 ) {
-                    androidx.compose.foundation.layout.Column(
+                    Column(
                         Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 8.dp, vertical = 8.dp)
@@ -131,8 +135,6 @@ fun AuraHomeScreen(
                             .clip(RoundedCornerShape(12.dp)),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        // Show last 10 messages
-                        val displayMessages = messages.takeLast(10)
                         displayMessages.forEach { msg ->
                             val time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(msg.timestamp)
                             val (textColor, align) = when (msg.role) {
@@ -151,7 +153,7 @@ fun AuraHomeScreen(
                                     color = textColor,
                                     fontSize = 14.sp,
                                     maxLines = 3,
-                                    overflow = androidx.compose.ui.text.TextOverflow.Ellipsis
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                         }
