@@ -37,6 +37,9 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+enum class OrbStyle { WIRE, VIDEO }
+const val ORB_STYLE = OrbStyle.WIRE
+
 @Composable
 fun AuraHomeScreen(
     mood: AuraMood,
@@ -71,22 +74,39 @@ fun AuraHomeScreen(
             val side = minOf(maxWidth, maxHeight)
             val debuggable = (LocalContext.current.applicationContext.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
             var debugMood by remember { mutableStateOf(mood) }
-            VideoOrb(
-                mood = if (debuggable) debugMood else mood,
-                modifier = Modifier.size(side)
-                    .pointerInput(Unit) {
-                        if (debuggable) {
-                            detectTapGestures(onTap = {
-                                debugMood = when (debugMood) {
-                                    AuraMood.IDLE -> AuraMood.LISTENING
-                                    AuraMood.LISTENING -> AuraMood.THINKING
-                                    AuraMood.THINKING -> AuraMood.ACTING
-                                    AuraMood.ACTING -> AuraMood.IDLE
-                                }
-                            })
+            if (ORB_STYLE == OrbStyle.VIDEO) {
+                VideoOrb(
+                    mood = if (debuggable) debugMood else mood,
+                    modifier = Modifier.size(side)
+                        .pointerInput(Unit) {
+                            if (debuggable) {
+                                detectTapGestures(onTap = {
+                                    debugMood = when (debugMood) {
+                                        AuraMood.IDLE -> AuraMood.LISTENING
+                                        AuraMood.LISTENING -> AuraMood.THINKING
+                                        AuraMood.THINKING -> AuraMood.ACTING
+                                        AuraMood.ACTING -> AuraMood.IDLE
+                                    }
+                                })
+                            }
                         }
-                    }
-            )
+                )
+            } else {
+                WireOrb(
+                    mood = if (debuggable) debugMood else mood,
+                    onTap = {
+                        if (debuggable) {
+                            debugMood = when (debugMood) {
+                                AuraMood.IDLE -> AuraMood.LISTENING
+                                AuraMood.LISTENING -> AuraMood.THINKING
+                                AuraMood.THINKING -> AuraMood.ACTING
+                                AuraMood.ACTING -> AuraMood.IDLE
+                            }
+                        }
+                    },
+                    modifier = Modifier.size(side)
+                )
+            }
         }
 
         if (status != null) {
