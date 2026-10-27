@@ -141,8 +141,9 @@ object CommandRouter {
     private val OPEN_VERBS = setOf("open", "launch", "start", "run")
     private val CALL_VERBS = setOf("call", "phone", "dial")
     private val TEXT_VERBS = setOf("text", "message", "send")
-    private val SEARCH_VERBS = setOf("search", "google", "look up", "lookup", "weather", "what")
-    private val SEARCH_PHRASES = listOf("what's")
+    // search|google|look up|find|search for <query> and exact phrases "what is the weather" / "weather"
+    private val SEARCH_VERBS = setOf("search", "google", "look up", "lookup", "find")
+    private val SEARCH_PHRASES = listOf("what is the weather", "weather")
 
         /**
          * Route a raw user command to an action route.
@@ -155,7 +156,7 @@ object CommandRouter {
             val firstTwoWords = if (words.size >= 2) words.take(2).joinToString(" ").lowercase() else ""
             if (trimmed.isBlank()) return AuraActionRoute.AskHermes(input)
 
-            // Check multi-word search phrases first
+            // Check multi-word search phrases first (exact phrases)
             if (firstTwoWords in SEARCH_PHRASES) {
                 val query = words.drop(2).joinToString(" ")
                 return if (query.isBlank()) AuraActionRoute.AskHermes(input)
@@ -190,6 +191,7 @@ object CommandRouter {
             }
         }
     }
+}
 
 /** Broadcast receiver to refresh AppIndex on package changes. */
 class PackageChangeReceiver : android.content.BroadcastReceiver() {

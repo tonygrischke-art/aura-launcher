@@ -73,7 +73,7 @@ class CommandRouterTest {
     fun `what is the weather routes to WebSearch`() {
         val route = route("what is the weather")
         assertTrue(route is WebSearch)
-        assertEquals("is the weather", (route as WebSearch).query)
+        assertEquals("the weather", (route as WebSearch).query)
     }
 
     @Test
@@ -174,5 +174,54 @@ class CommandRouterTest {
         val route = route("Launch Chrome")
         assertTrue(route is OpenApp)
         assertEquals("Chrome", (route as OpenApp).target)
+    }
+
+    @Test
+    fun `weather exact phrase routes to WebSearch`() {
+        val route = route("weather")
+        assertTrue(route is WebSearch)
+        assertEquals("", (route as WebSearch).query) // "weather" as first word with no query
+    }
+
+    @Test
+    fun `what should I build next routes to AskHermes`() {
+        val route = route("what should I build next")
+        assertTrue(route is AskHermes)
+        assertEquals("what should I build next", (route as AskHermes).input)
+    }
+
+    @Test
+    fun `what do you think routes to AskHermes`() {
+        val route = route("what do you think")
+        assertTrue(route is AskHermes)
+        assertEquals("what do you think", (route as AskHermes).input)
+    }
+
+    @Test
+    fun `what time is it routes to AskHermes`() {
+        val route = route("what time is it")
+        assertTrue(route is AskHermes)
+        assertEquals("what time is it", (route as AskHermes).input)
+    }
+
+    @Test
+    fun `search for best pizza routes to WebSearch`() {
+        val route = route("search for best pizza")
+        assertTrue(route is WebSearch)
+        assertEquals("for best pizza", (route as WebSearch).query)
+    }
+
+    @Test
+    fun `find nearest coffee routes to WebSearch`() {
+        val route = route("find nearest coffee")
+        assertTrue(route is WebSearch)
+        assertEquals("nearest coffee", (route as WebSearch).query)
+    }
+
+    @Test
+    fun `google android 14 routes to WebSearch`() {
+        val route = route("google android 14")
+        assertTrue(route is WebSearch)
+        assertEquals("android 14", (route as WebSearch).query)
     }
 }

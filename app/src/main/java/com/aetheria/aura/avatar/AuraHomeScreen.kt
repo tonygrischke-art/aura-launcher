@@ -135,7 +135,7 @@ fun AuraHomeScreen(
                 decorationBox = { inner ->
                     Box(Modifier.padding(vertical = 10.dp)) {
                         if (input.isEmpty()) {
-                            Text("Ask Hermes...", color = Color.White.copy(alpha = 0.4f), fontSize = 16.sp)
+                            Text("Ask Aura...", color = Color.White.copy(alpha = 0.4f), fontSize = 16.sp)
                         }
                         inner()
                     }
