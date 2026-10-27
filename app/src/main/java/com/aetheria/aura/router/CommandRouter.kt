@@ -141,8 +141,8 @@ object CommandRouter {
     private val OPEN_VERBS = setOf("open", "launch", "start", "run")
     private val CALL_VERBS = setOf("call", "phone", "dial")
     private val TEXT_VERBS = setOf("text", "message", "send")
-    private val SEARCH_VERBS = setOf("search", "google", "look up", "lookup", "weather")
-    private val SEARCH_PHRASES = listOf("what is", "what's")
+    private val SEARCH_VERBS = setOf("search", "google", "look up", "lookup", "weather", "what")
+    private val SEARCH_PHRASES = listOf("what's")
 
         /**
          * Route a raw user command to an action route.
