@@ -1,6 +1,5 @@
 package com.aetheria.aura.avatar
 
-import android.hardware.HardwareBuffer
 import android.util.Log
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -15,7 +14,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.repeatOnLifecycle
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,6 +28,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.delay
 import kotlin.math.PI
 import kotlin.math.acos
 import kotlin.math.atan2
@@ -48,7 +48,6 @@ fun WireOrb(
     modifier: Modifier = Modifier
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
-    val isRunning = repeatOnLifecycle(lifecycleOwner, Lifecycle.State.STARTED) { true } ?: false
 
     // Precomputed icosphere (subdivision 2 = 162 vertices, ~480 edges)
     val icosphere = remember { Icosphere(subdivisions = 2) }
@@ -56,52 +55,121 @@ fun WireOrb(
     // Animation state
     val yaw by remember { mutableStateOf(0.0f) }
     val pitch by remember { mutableStateOf(0.0f) }
-    val yawVel by remember { mutableStateOf(0.0f) }
-    val pitchVel by remember { mutableStateOf(0.0f) }
+    var yawVel by remember { mutableStateOf(0.0f) }
+    var pitchVel by remember { mutableStateOf(0.0f) }
 
     // Mood parameters with smooth blending
     val spinSpeed by animateMoodFloat(mood) {
         when (it) {
-            is AuraMood.IDLE -> 0.15f
-            is AuraMood.LISTENING -> 0.2f
-            is AuraMood.THINKING -> 0.5f
-            is AuraMood.ACTING -> 1.0f
+            AuraMood.IDLE -> 0.15f
+            AuraMood.LISTENING -> 0.2f
+            AuraMood.THINKING -> 0.5f
+            AuraMood.ACTING -> 1.0f
         }
     }
     val cyanIntensity by animateMoodFloat(mood) {
         when (it) {
-            is AuraMood.IDLE -> 1.0f
-            is AuraMood.LISTENING -> 1.3f
-            is AuraMood.THINKING -> 0.8f
-            is AuraMood.ACTING -> 1.5f
+            AuraMood.IDLE -> 1.0f
+            AuraMood.LISTENING -> 1.3f
+            AuraMood.THINKING -> 0.8f
+            AuraMood.ACTING -> 1.5f
         }
     }
     val violetShift by animateMoodFloat(mood) {
         when (it) {
-            is AuraMood.IDLE -> 0.0f
-            is AuraMood.LISTENING -> 0.0f
-            is AuraMood.THINKING -> 1.0f
-            is AuraMood.ACTING -> 0.5f
+            AuraMood.IDLE -> 0.0f
+            AuraMood.LISTENING -> 0.0f
+            AuraMood.THINKING -> 1.0f
+            AuraMood.ACTING -> 0.5f
         }
     }
     val edgePulseSpeed by animateMoodFloat(mood) {
         when (it) {
-            is AuraMood.IDLE -> 0.0f
-            is AuraMood.LISTENING -> 0.0f
-            is AuraMood.THINKING -> 0.0f
-            is AuraMood.ACTING -> 3.0f
+            AuraMood.IDLE -> 0.0f
+            AuraMood.LISTENING -> 0.0f
+            AuraMood.THINKING -> 0.0f
+            AuraMood.ACTING -> 3.0f
         }
     }
     val coreBreath by animateMoodFloat(mood) {
         when (it) {
-            is AuraMood.IDLE -> 1.0f
-            is AuraMood.LISTENING -> 1.2f
-            is AuraMood.THINKING -> 0.8f
-            is AuraMood.ACTING -> 1.5f
+            AuraMood.IDLE -> 1.0f
+            AuraMood.LISTENING -> 1.2f
+            AuraMood.THINKING -> 0.8f
+            AuraMood.ACTING -> 1.5f
         }
     }
     val rippleTimer by remember { mutableStateOf(0.0f) }
     val ripplePhase by remember { mutableStateOf(0.0f) }
+    val rippleOrigin by remember { mutableStateOf(icosphere.vertices[0]) }
+    val rippleAccumulator by remember { mutableStateOf(0.0f) }
+    val corePhase by remember { mutableStateOf(0.0f) }
+    val edgePulsePhase by remember { mutableStateOf(0.0f) }
+    val lastFrameTime by remember { mutableStateOf(System.nanoTime()) }
+
+    // Animation loop - only runs when lifecycle is STARTED
+    LaunchedEffect(lifecycleOwner) {
+        repeatOnLifecycle(lifecycleOwner, Lifecycle.State.STARTED) {
+            var frameCount = 0
+            var lastLog = System.nanoTime()
+            var frameStart = System.nanoTime()
+            while (true) {
+                val now = System.nanoTime()
+                val dt = (now - lastFrameTime) / 1_000_000_000f
+                lastFrameTime = now
+
+                // Auto-rotate when not dragging
+                if (Math.abs(yawVel) < 0.001f && Math.abs(pitchVel) < 0.001f) {
+                    yaw += spinSpeed * dt * 0.5f
+                } else {
+                    yawVel *= 0.95f
+                    pitchVel *= 0.95f
+                }
+
+                // Update ripple
+                if (rippleTimer > 0f) {
+                    rippleTimer = max(0f, rippleTimer - dt)
+                    ripplePhase = 1f - rippleTimer / 0.8f
+                }
+
+                // Mood ripple timer (LISTENING)
+                if (mood == AuraMood.LISTENING) {
+                    rippleAccumulator += dt
+                    if (rippleAccumulator >= 1.2f) {
+                        rippleAccumulator = 0f
+                        rippleTimer = 0.8f
+                        ripplePhase = 0f
+                        val idx = ((yaw / (2f * PI) * icosphere.vertices.size) % icosphere.vertices.size).toInt()
+                        rippleOrigin = icosphere.vertices[if (idx >= 0) idx else 0]
+                    }
+                }
+
+                // Core breathing
+                corePhase += dt * coreBreath * 0.5f
+
+                // ACTING edge pulses
+                val edgePulseSpeed = when (mood) {
+                    AuraMood.ACTING -> 3.0f
+                    else -> 0.0f
+                }
+                if (edgePulseSpeed > 0f) {
+                    edgePulsePhase += dt * edgePulseSpeed
+                    if (edgePulsePhase > 1f) edgePulsePhase -= 1f
+                }
+
+                // Frame time logging
+                frameCount++
+                if (now - lastLog >= 5_000_000_000L) {
+                    val avgMs = (now - lastLog) / 1_000_000f / frameCount
+                    Log.d("AuraWireOrb", "avg frame time: ${avgMs:.2f}ms over $frameCount frames")
+                    frameCount = 0
+                    lastLog = now
+                }
+
+                kotlinx.coroutines.delay(16)
+            }
+        }
+    }
 
     // Drag handling
     Box(
@@ -123,7 +191,10 @@ fun WireOrb(
                 )
                 detectTapGestures(onTap = {
                     onTap()
-                    triggerRipple()
+                    rippleTimer = 0.8f
+                    ripplePhase = 0f
+                    val idx = ((yaw / (2f * PI) * icosphere.vertices.size) % icosphere.vertices.size).toInt()
+                    rippleOrigin = icosphere.vertices[if (idx >= 0) idx else 0]
                 })
             }
     ) {
@@ -133,102 +204,75 @@ fun WireOrb(
             val centerY = this.size.height / 2f
             val radius = size * 0.35f // 70% of box
 
-            // Update rotation (auto-rotate when not dragging)
-            val now = System.nanoTime()
-            val dt = (now - lastFrameTime) / 1_000_000_000f
-            lastFrameTime = now
-            if (abs(yawVel) < 0.001f && abs(pitchVel) < 0.001f) {
-                yaw += spinSpeed * dt * 0.5f
-            } else {
-                yawVel *= 0.95f
-                pitchVel *= 0.95f
-            }
-
-            // Update ripple
-            if (rippleTimer > 0f) {
-                rippleTimer = max(0f, rippleTimer - dt)
-                ripplePhase = 1f - rippleTimer / rippleDuration
-            }
-
-            // Mood ripple timer (LISTENING)
-            if (mood is AuraMood.LISTENING) {
-                rippleAccumulator += dt
-                if (rippleAccumulator >= 1.2f) {
-                    rippleAccumulator = 0f
-                    triggerRipple()
-                }
-            }
-
-            // Core breathing
-            corePhase += dt * coreBreath * 0.5f
-
-            // Render edges (back faces dimmer, front faces brighter)
+            // Project all vertices with rotation
             val cosPitch = cos(pitch)
             val sinPitch = sin(pitch)
             val cosYaw = cos(yaw)
             val sinYaw = sin(yaw)
 
-            // Project all vertices
             val projected = icosphere.vertices.map { v ->
-                val (x, y, z) = rotateVertex(v.x, v.y, v.z, cosPitch, sinPitch, cosYaw, sinYaw)
-                val px = centerX + x * radius
-                val py = centerY + y * radius
-                val pz = z // depth for back-face culling/alpha
-                val screenR = radius * 0.015f // node radius
+                val x1 = v.first * cosPitch + v.third * sinPitch
+                val y1 = v.second
+                val z1 = -v.first * sinPitch + v.third * cosPitch
+
+                val x2 = x1 * cosYaw + z1 * sinYaw
+                val z2 = -x1 * sinYaw + z1 * cosYaw
+
+                val px = centerX + x2 * radius
+                val py = centerY + y1 * radius
+                val pz = z1
+                val screenR = radius * 0.015f
                 ProjectedVertex(px, py, pz, screenR)
             }
 
             // Ripple propagation
-            if (rippleTimer > 0f) {
-                val rippleProgress = ripplePhase
-                for (i in projected.indices) {
-                    val dist = angularDistance(rippleOrigin, icosphere.vertices[i])
-                    val influence = max(0f, 1f - dist / (PI / 3f)) * (1f - rippleProgress)
-                    if (influence > 0f) {
-                        projected[i] = projected[i].copy(rippleBoost = influence)
-                    }
-                }
+            val rippleProgress = ripplePhase
+            val projectedWithRipple = projected.mapIndexed { i, v ->
+                val dist = angularDistance(rippleOrigin, icosphere.vertices[i])
+                val influence = max(0f, 1f - dist / (PI / 3f)) * (1f - rippleProgress)
+                if (influence > 0f) {
+                    v.copy(rippleBoost = influence)
+                } else v
             }
 
-            // ACTING: edge pulses
-            if (edgePulseSpeed > 0f) {
-                edgePulsePhase += dt * edgePulseSpeed
-                if (edgePulsePhase > 1f) edgePulsePhase -= 1f
-            }
-
-            // Draw edges
-            val paint = Paint()
-            paint.style = Paint.Style.Stroke
-            paint.strokeWidth = 1.5f
-            paint.strokeCap = StrokeCap.Round
+            // Render edges
+            val edgePaint = Paint()
+            edgePaint.style = Paint.Style.Stroke
+            edgePaint.strokeWidth = 1.5f
+            edgePaint.strokeCap = StrokeCap.Round
 
             for (edge in icosphere.edges) {
-                val a = projected[edge.a]
-                val b = projected[b]
+                val a = projectedWithRipple[edge.a]
+                val b = projectedWithRipple[edge.b]
                 val avgZ = (a.z + b.z) / 2f
                 val isFront = avgZ > 0f
                 val depthAlpha = (1f + avgZ) / 2f // -1..1 -> 0..1
 
-                // Base color
                 val baseCyan = lerp(Color(0xFF00E5FF), Color(0xFF00FFFF), cyanIntensity - 1f)
                 val baseViolet = lerp(Color(0xFF8B5CF6), Color(0xFFBB86FC), violetShift)
                 val color = if (violetShift > 0f) lerp(baseCyan, baseViolet, violetShift) else baseCyan
 
-                // ACTING edge pulse
                 var alpha = if (isFront) 0.85f * depthAlpha else 0.25f * depthAlpha
+
+                val edgePulseSpeed = when (mood) {
+                    AuraMood.ACTING -> 3.0f
+                    else -> 0.0f
+                }
                 if (edgePulseSpeed > 0f) {
                     val pulsePos = (edgePulsePhase + (a.hashCode() % 100) / 100f) % 1f
                     alpha *= 0.5f + 0.5f * cos(pulsePos * 2f * PI)
                 }
 
-                paint.color = color.copy(alpha = alpha)
-                drawLine(color.copy(alpha = alpha), Offset(a.x, a.y), Offset(b.x, b.y), 1.5f)
+                drawLine(
+                    color.copy(alpha = alpha),
+                    Offset(a.x, a.y),
+                    Offset(b.x, b.y),
+                    1.5f
+                )
             }
 
             // Draw vertices (nodes)
-            val nodePaint = Paint()
-            nodePaint.style = Paint.Style.Fill
-            for (v in projected) {
+            for (v in projectedWithRipple) {
                 val depthAlpha = (1f + v.z) / 2f
                 val baseAlpha = 0.9f * depthAlpha
                 val nodeCyan = Color(0xFF00E5FF).copy(alpha = baseAlpha * cyanIntensity * (1f + v.rippleBoost))
@@ -268,48 +312,18 @@ fun WireOrb(
         }
     }
 
-    // Frame time logging
-    LaunchedEffect(isRunning) {
-        if (!isRunning) return
-        var frameCount = 0
-        var lastLog = System.nanoTime()
-        var frameStart = System.nanoTime()
-        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_START) frameStart = System.nanoTime()
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        while (true) {
-            val now = System.nanoTime()
-            frameCount++
-            if (now - lastLog >= 5_000_000_000L) {
-                val avgMs = (now - frameStart) / 1_000_000f / frameCount
-                Log.d("AuraWireOrb", "avg frame time: ${avgMs:.2f}ms over $frameCount frames")
-                frameCount = 0
-                lastLog = now
-                frameStart = now
-            }
-            kotlinx.coroutines.delay(16)
-        }
-    }
-
-    fun triggerRipple() {
-        rippleTimer = rippleDuration
-        ripplePhase = 0f
-        rippleOrigin = icosphere.vertices[(yaw / (2f * PI) * icosphere.vertices.size).toInt() % icosphere.vertices.size]
+    // Cleanup
+    DisposableEffect(Unit) {
+        onDispose { }
     }
 }
 
-private fun rotateVertex(x: Float, y: Float, z: Float, cp: Float, sp: Float, cy: Float, sy: Float): Triple<Float, Float, Float> {
-    // Rotate around X (pitch)
-    val y1 = y * cp - z * sp
-    val z1 = y * sp + z * cp
-    // Rotate around Y (yaw)
-    val x1 = x * cp + z1 * sp
-    val z2 = -x * sp + z1 * cp
-    // Wait, that's wrong - need proper yaw rotation around Y axis
-    val x2 = x * cosYaw + z1 * sinYaw
-    val z2 = -x * sinYaw + z1 * cosYaw
-    return Triple(x2, y1, z2)
+private fun animateMoodFloat(mood: AuraMood, targetProvider: (AuraMood) -> Float): Float {
+    val target = targetProvider(mood)
+    return androidx.compose.animation.core.animateFloatAsState(
+        targetValue = target,
+        animationSpec = tween(300)
+    ).value
 }
 
 private data class ProjectedVertex(
@@ -327,8 +341,7 @@ private class Icosphere(val subdivisions: Int) {
     val edges: List<Edge>
 
     init {
-        // Icosphere: 12 base vertices of icosahedron
-        val t = (1f + sqrt(5f)) / 2f // golden ratio
+        val t = (1f + sqrt(5f)) / 2f
         val baseVerts = listOf(
             Triple(-1f, t, 0f), Triple(1f, t, 0f), Triple(-1f, -t, 0f), Triple(1f, -t, 0f),
             Triple(0f, -1f, t), Triple(0f, 1f, t), Triple(0f, -1f, -t), Triple(0f, 1f, -t),
@@ -338,7 +351,6 @@ private class Icosphere(val subdivisions: Int) {
             Triple(v.first / len, v.second / len, v.third / len)
         }
 
-        // 20 faces of icosahedron
         val faces = listOf(
             Triple(0, 11, 5), Triple(0, 5, 1), Triple(0, 1, 7), Triple(0, 7, 10), Triple(0, 10, 11),
             Triple(1, 5, 9), Triple(5, 11, 4), Triple(11, 10, 2), Triple(10, 7, 6), Triple(7, 1, 8),
@@ -346,7 +358,6 @@ private class Icosphere(val subdivisions: Int) {
             Triple(4, 9, 5), Triple(2, 4, 11), Triple(6, 2, 10), Triple(8, 6, 7), Triple(9, 8, 1)
         )
 
-        // Subdivide
         var verts = baseVerts.toMutableList()
         var faceList = faces.toMutableList()
         val midCache = mutableMapOf<Pair<Int, Int>, Int>()
@@ -384,7 +395,6 @@ private class Icosphere(val subdivisions: Int) {
 
         this.vertices = verts.map { Triple(it.first, it.second, it.third) }
 
-        // Build unique edges
         val edgeSet = mutableSetOf<Pair<Int, Int>>()
         for (f in faceList) {
             val edges = listOf(Pair(f.first, f.second), Pair(f.second, f.third), Pair(f.third, f.first))
@@ -397,15 +407,8 @@ private class Icosphere(val subdivisions: Int) {
     }
 }
 
-private fun animateMoodFloat(mood: AuraMood, targetProvider: (AuraMood) -> Float): Float {
-    val target = targetProvider(mood)
-    return androidx.compose.animation.core.animateFloatAsState(
-        targetValue = target,
-        animationSpec = tween(300)
-    ).value
-}
-
-private var lastFrameTime = System.nanoTime()
+private var frameCount = 0
+private var lastLog = System.nanoTime()
 private var corePhase = 0.0f
 private var edgePulsePhase = 0.0f
 private var rippleTimer = 0.0f
@@ -413,6 +416,8 @@ private val rippleDuration = 0.8f
 private var ripplePhase = 0.0f
 private var rippleAccumulator = 0.0f
 private var rippleOrigin = Triple(0f, 0f, 1f)
+private var yawVel = 0.0f
+private var pitchVel = 0.0f
 
 private fun angularDistance(a: Triple<Float, Float, Float>, b: Triple<Float, Float, Float>): Float {
     val dot = a.first * b.first + a.second * b.second + a.third * b.third
@@ -423,5 +428,5 @@ private fun lerp(a: Color, b: Color, t: Float): Color {
     return Color.lerp(a, b, t.coerceIn(0f, 1f))
 }
 
-private val CosYaw = 1.0f
-private val SinYaw = 0.0f
+private var yaw = 0.0f
+private var pitch = 0.0f

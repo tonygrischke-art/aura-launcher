@@ -38,7 +38,7 @@ import java.util.Date
 import java.util.Locale
 
 enum class OrbStyle { WIRE, VIDEO }
-const val ORB_STYLE = OrbStyle.WIRE
+const val ORB_STYLE = "WIRE"
 
 @Composable
 fun AuraHomeScreen(
@@ -74,7 +74,7 @@ fun AuraHomeScreen(
             val side = minOf(maxWidth, maxHeight)
             val debuggable = (LocalContext.current.applicationContext.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
             var debugMood by remember { mutableStateOf(mood) }
-            if (ORB_STYLE == OrbStyle.VIDEO) {
+            if (ORB_STYLE == "VIDEO") {
                 VideoOrb(
                     mood = if (debuggable) debugMood else mood,
                     modifier = Modifier.size(side)
