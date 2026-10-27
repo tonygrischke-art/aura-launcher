@@ -14,6 +14,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Arrangement
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
@@ -68,7 +69,7 @@ fun AuraHomeScreen(
             .navigationBarsPadding()
             .imePadding()
             .padding(horizontal = 20.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalArrangement = Arrangement.Center
     ) {
         Spacer(Modifier.height(28.dp))
         Text(clock, color = Color.White, fontSize = 64.sp, fontWeight = FontWeight.Thin)
@@ -121,7 +122,7 @@ fun AuraHomeScreen(
                     .fillMaxWidth()
                     .height(200.dp)
                     .padding(bottom = 12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                horizontalArrangement = Arrangement.Center
             ) {
                 Box(
                     Modifier.fillMaxSize(),
@@ -133,7 +134,7 @@ fun AuraHomeScreen(
                             .padding(horizontal = 8.dp, vertical = 8.dp)
                             .background(Color(0xFF14181F))
                             .clip(RoundedCornerShape(12.dp)),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                        horizontalArrangement = Arrangement.Center
                     ) {
                         displayMessages.forEach { msg ->
                             val time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(msg.timestamp)
@@ -146,7 +147,11 @@ fun AuraHomeScreen(
                                 Modifier
                                     .fillMaxWidth()
                                     .padding(horizontal = 12.dp, vertical = 4.dp),
-                                horizontalAlignment = align
+                                horizontalArrangement = when (align) {
+                                    Alignment.Start -> Arrangement.Start
+                                    Alignment.End -> Arrangement.End
+                                    else -> Arrangement.Center
+                                }
                             ) {
                                 Text(
                                     text = "${msg.content}",
