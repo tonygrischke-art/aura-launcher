@@ -53,7 +53,7 @@ fun WireOrb(
     var yawVel by remember { mutableStateOf(0.0f) }
     var pitchVel by remember { mutableStateOf(0.0f) }
 
-    val spinSpeed = remember {
+    val spinSpeed by remember {
         androidx.compose.animation.core.animateFloatAsState(
             targetValue = when (mood) {
                 AuraMood.IDLE -> 0.15f
@@ -197,7 +197,7 @@ fun WireOrb(
                 })
             }
     ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
+        Canvas(modifier = androidx.compose.foundation.layout.fillMaxSize()) {
             val size = min(this.size.width, this.size.height)
             val centerX = this.size.width / 2f
             val centerY = this.size.height / 2f
