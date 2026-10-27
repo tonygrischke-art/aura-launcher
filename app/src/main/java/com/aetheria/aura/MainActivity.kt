@@ -3,6 +3,7 @@ package com.aetheria.aura
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.compose.setContent
+import androidx.lifecycle.lifecycleScope
 import com.aetheria.aura.avatar.AuraMood
 import com.aetheria.aura.avatar.AuraHomeScreen
 import androidx.compose.runtime.Composable
@@ -21,6 +22,12 @@ import com.aetheria.aura.router.CommandRouter
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.rememberCoroutineScope
 import com.aetheria.aura.actions.AuraAction
+import com.aetheria.aura.actions.AuraAction.OpenApp
+import com.aetheria.aura.actions.AuraAction.CallContact
+import com.aetheria.aura.actions.AuraAction.SendText
+import com.aetheria.aura.actions.AuraAction.WebSearch
+import com.aetheria.aura.actions.AuraAction.AskHermes
+import com.aetheria.aura.actions.AuraAction.Unknown
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -29,7 +36,7 @@ class MainActivity : ComponentActivity() {
             val pm = packageManager
             val appIndex = AppIndex(this)
             // Build AppIndex on background thread
-            androidx.lifecycle.lifecycleScope.launch(Dispatchers.IO) {
+            lifecycleScope.launch(Dispatchers.IO) {
                 val (count, buildTimeMs) = appIndex.build()
                 Log.d("AuraRouter", "AppIndex built: $count apps in ${buildTimeMs}ms")
             }
@@ -50,32 +57,32 @@ class MainActivity : ComponentActivity() {
                             val route = CommandRouter.route(cmd)
                             val startMs = System.currentTimeMillis()
                             when (route) {
-                                is AuraAction.OpenApp -> {
-                                    val result = ActionExecutor.execute(route, pm, appIndex)
+                                is CommandRouter.AuraActionRoute.OpenApp -> {
+                                    val action = AuraAction.OpenApp(route.target)
+                                    val result = ActionExecutor.execute(action, pm, appIndex)
                                     Log.d("AuraRouter", "Routed OPEN_APP target='${route.target}' action=$result matchTimeMs=${System.currentTimeMillis() - startMs}")
                                 }
-                                is AuraAction.CallContact -> {
-                                    val result = ActionExecutor.execute(route, pm, appIndex)
+                                is CommandRouter.AuraActionRoute.CallContact -> {
+                                    val action = AuraAction.CallContact(route.name)
+                                    val result = ActionExecutor.execute(action, pm, appIndex)
                                     Log.d("AuraRouter", "Routed CALL_CONTACT name='${route.name}' action=$result matchTimeMs=${System.currentTimeMillis() - startMs}")
                                 }
-                                is AuraAction.SendText -> {
-                                    val result = ActionExecutor.execute(route, pm, appIndex)
+                                is CommandRouter.AuraActionRoute.SendText -> {
+                                    val action = AuraAction.SendText(route.name, route.body)
+                                    val result = ActionExecutor.execute(action, pm, appIndex)
                                     Log.d("AuraRouter", "Routed SEND_TEXT name='${route.name}' body='${route.body}' action=$result matchTimeMs=${System.currentTimeMillis() - startMs}")
                                 }
-                                is AuraAction.WebSearch -> {
-                                    val result = ActionExecutor.execute(route, pm, appIndex)
+                                is CommandRouter.AuraActionRoute.WebSearch -> {
+                                    val action = AuraAction.WebSearch(route.query)
+                                    val result = ActionExecutor.execute(action, pm, appIndex)
                                     Log.d("AuraRouter", "Routed WEB_SEARCH query='${route.query}' action=$result matchTimeMs=${System.currentTimeMillis() - startMs}")
                                 }
-                                is AuraAction.AskHermes -> {
+                                is CommandRouter.AuraActionRoute.AskHermes -> {
                                     Log.d("AuraRouter", "Routed ASK_HERMES input='${route.input}' matchTimeMs=${System.currentTimeMillis() - startMs}")
                                     val result = HermesClient.send(route.input)
                                     phase = AuraMood.ACTING
                                     val execResult = ActionExecutor.execute(result, pm, appIndex)
                                     delay(900)
-                                }
-                                is AuraAction.Unknown -> {
-                                    Log.d("AuraRouter", "Routed UNKNOWN cmd='$cmd' matchTimeMs=${System.currentTimeMillis() - startMs}")
-                                    status = "Unknown command"
                                 }
                             }
                         } catch (e: Exception) {

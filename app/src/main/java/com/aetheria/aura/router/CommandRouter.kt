@@ -191,7 +191,6 @@ object CommandRouter {
             }
         }
     }
-}
 
 /** Broadcast receiver to refresh AppIndex on package changes. */
 class PackageChangeReceiver : android.content.BroadcastReceiver() {
