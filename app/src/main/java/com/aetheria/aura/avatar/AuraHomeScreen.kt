@@ -52,7 +52,7 @@ fun AuraHomeScreen(
     onFocusChange: (Boolean) -> Unit,
     onMic: () -> Unit,
     status: String?,
-    messages: java.util.List<ChatMessage>,
+    messages: List<ChatMessage>,
     modifier: Modifier = Modifier,
 ) {
     var now by remember { mutableStateOf(Date()) }

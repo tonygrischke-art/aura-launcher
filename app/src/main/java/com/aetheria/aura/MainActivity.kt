@@ -168,7 +168,7 @@ class MainActivity : ComponentActivity() {
                         if (isListening) stopListening() else startListening() 
                     },
                     status = status,
-                    messages = messages.value
+                    messages = messages.value as List<ChatMessage>
                 )
             }
         }
