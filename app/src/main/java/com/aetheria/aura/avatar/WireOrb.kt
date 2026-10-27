@@ -54,7 +54,7 @@ fun WireOrb(
     var yawVel by remember { mutableStateOf(0.0f) }
     var pitchVel by remember { mutableStateOf(0.0f) }
 
-    val spinSpeed = remember {
+    val spinSpeed = remember(mood) {
         androidx.compose.animation.core.animateFloatAsState(
             targetValue = when (mood) {
                 AuraMood.IDLE -> 0.15f
@@ -66,7 +66,7 @@ fun WireOrb(
         )
     }.value
 
-    val cyanIntensity = remember {
+    val cyanIntensity = remember(mood) {
         androidx.compose.animation.core.animateFloatAsState(
             targetValue = when (mood) {
                 AuraMood.IDLE -> 1.0f
@@ -78,7 +78,7 @@ fun WireOrb(
         )
     }.value
 
-    val violetShift = remember {
+    val violetShift = remember(mood) {
         androidx.compose.animation.core.animateFloatAsState(
             targetValue = when (mood) {
                 AuraMood.IDLE -> 0.0f
@@ -90,7 +90,7 @@ fun WireOrb(
         )
     }.value
 
-    val coreBreath = remember {
+    val coreBreath = remember(mood) {
         androidx.compose.animation.core.animateFloatAsState(
             targetValue = when (mood) {
                 AuraMood.IDLE -> 1.0f
