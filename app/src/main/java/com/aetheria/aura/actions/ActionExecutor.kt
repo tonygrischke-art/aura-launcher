@@ -1,5 +1,6 @@
 package com.aetheria.aura.actions
 
+import android.app.SearchManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
