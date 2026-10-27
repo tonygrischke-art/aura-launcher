@@ -50,7 +50,7 @@ class MainActivity : ComponentActivity() {
                             // Route locally first
                             val route = CommandRouter.route(cmd)
                             val startMs = System.currentTimeMillis()
-                            // Exhaustive when on sealed class AuraActionRoute
+                            // Exhaustive when on sealed class AuraActionRoute with else for safety
                             when (route) {
                                 is CommandRouter.AuraActionRoute.OpenApp -> {
                                     val action = AuraAction.OpenApp(route.target)
@@ -78,6 +78,9 @@ class MainActivity : ComponentActivity() {
                                     phase = AuraMood.ACTING
                                     val execResult = ActionExecutor.execute(result, pm, appIndex)
                                     delay(900)
+                                }
+                                else -> {
+                                    Log.w("AuraRouter", "Unexpected route type: ${route::class.simpleName}")
                                 }
                             }
                         } catch (e: Exception) {
