@@ -19,6 +19,7 @@ import com.aetheria.aura.net.HermesClient
 import com.aetheria.aura.actions.ActionExecutor
 import com.aetheria.aura.router.AppIndex
 import com.aetheria.aura.router.CommandRouter
+import com.aetheria.aura.router.AuraActionRoute
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.rememberCoroutineScope
 import com.aetheria.aura.actions.AuraAction
@@ -50,37 +51,34 @@ class MainActivity : ComponentActivity() {
                             // Route locally first
                             val route = CommandRouter.route(cmd)
                             val startMs = System.currentTimeMillis()
-                            // Exhaustive when on sealed class AuraActionRoute with else for safety
+                            // Exhaustive when on sealed class AuraActionRoute
                             when (route) {
-                                is CommandRouter.AuraActionRoute.OpenApp -> {
+                                is AuraActionRoute.OpenApp -> {
                                     val action = AuraAction.OpenApp(route.target)
                                     val result = ActionExecutor.execute(action, pm, appIndex)
                                     Log.d("AuraRouter", "Routed OPEN_APP target='${route.target}' action=$result matchTimeMs=${System.currentTimeMillis() - startMs}")
                                 }
-                                is CommandRouter.AuraActionRoute.CallContact -> {
+                                is AuraActionRoute.CallContact -> {
                                     val action = AuraAction.CallContact(route.name)
                                     val result = ActionExecutor.execute(action, pm, appIndex)
                                     Log.d("AuraRouter", "Routed CALL_CONTACT name='${route.name}' action=$result matchTimeMs=${System.currentTimeMillis() - startMs}")
                                 }
-                                is CommandRouter.AuraActionRoute.SendText -> {
+                                is AuraActionRoute.SendText -> {
                                     val action = AuraAction.SendText(route.name, route.body)
                                     val result = ActionExecutor.execute(action, pm, appIndex)
                                     Log.d("AuraRouter", "Routed SEND_TEXT name='${route.name}' body='${route.body}' action=$result matchTimeMs=${System.currentTimeMillis() - startMs}")
                                 }
-                                is CommandRouter.AuraActionRoute.WebSearch -> {
+                                is AuraActionRoute.WebSearch -> {
                                     val action = AuraAction.WebSearch(route.query)
                                     val result = ActionExecutor.execute(action, pm, appIndex)
                                     Log.d("AuraRouter", "Routed WEB_SEARCH query='${route.query}' action=$result matchTimeMs=${System.currentTimeMillis() - startMs}")
                                 }
-                                is CommandRouter.AuraActionRoute.AskHermes -> {
+                                is AuraActionRoute.AskHermes -> {
                                     Log.d("AuraRouter", "Routed ASK_HERMES input='${route.input}' matchTimeMs=${System.currentTimeMillis() - startMs}")
                                     val result = HermesClient.send(route.input)
                                     phase = AuraMood.ACTING
                                     val execResult = ActionExecutor.execute(result, pm, appIndex)
                                     delay(900)
-                                }
-                                else -> {
-                                    Log.w("AuraRouter", "Unexpected route type: ${route::class.simpleName}")
                                 }
                             }
                         } catch (e: Exception) {

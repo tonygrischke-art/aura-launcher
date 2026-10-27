@@ -12,6 +12,18 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicReference
 
 /**
+ * Sealed class representing the possible route outcomes from CommandRouter.
+ * Defined at top-level for proper exhaustiveness checking.
+ */
+sealed class AuraActionRoute {
+    data class OpenApp(val target: String) : AuraActionRoute()
+    data class CallContact(val name: String) : AuraActionRoute()
+    data class SendText(val name: String, val body: String) : AuraActionRoute()
+    data class WebSearch(val query: String) : AuraActionRoute()
+    data class AskHermes(val input: String) : AuraActionRoute()
+}
+
+/**
  * In-process label -> package map built from launcher-resolvable activities.
  * Refreshes on package add/remove broadcasts.
  */
@@ -128,14 +140,6 @@ class AppIndex(private val context: Context) {
  * Pure function command router. No I/O, no Android deps.
  * Input: raw user string. Output: AuraActionRoute.
  */
-sealed class AuraActionRoute {
-    data class OpenApp(val target: String) : AuraActionRoute()
-    data class CallContact(val name: String) : AuraActionRoute()
-    data class SendText(val name: String, val body: String) : AuraActionRoute()
-    data class WebSearch(val query: String) : AuraActionRoute()
-    data class AskHermes(val input: String) : AuraActionRoute()
-}
-
 object CommandRouter {
 
     private val OPEN_VERBS = setOf("open", "launch", "start", "run")
@@ -145,52 +149,52 @@ object CommandRouter {
     private val SEARCH_VERBS = setOf("search", "google", "look up", "lookup", "find")
     private val SEARCH_PHRASES = listOf("what is the weather", "weather")
 
-        /**
-         * Route a raw user command to an action route.
-         * Pure function - no side effects.
-         */
-        fun route(input: String): AuraActionRoute {
-            val trimmed = input.trim()
-            val words = trimmed.split("\\s+".toRegex())
-            val firstWord = words.firstOrNull()?.lowercase() ?: ""
-            val firstTwoWords = if (words.size >= 2) words.take(2).joinToString(" ").lowercase() else ""
-            if (trimmed.isBlank()) return AuraActionRoute.AskHermes(input)
+    /**
+     * Route a raw user command to an action route.
+     * Pure function - no side effects.
+     */
+    fun route(input: String): AuraActionRoute {
+        val trimmed = input.trim()
+        val words = trimmed.split("\\s+".toRegex())
+        val firstWord = words.firstOrNull()?.lowercase() ?: ""
+        val firstTwoWords = if (words.size >= 2) words.take(2).joinToString(" ").lowercase() else ""
+        if (trimmed.isBlank()) return AuraActionRoute.AskHermes(input)
 
-            // Check multi-word search phrases first (exact phrases)
-            if (firstTwoWords in SEARCH_PHRASES) {
-                val query = words.drop(2).joinToString(" ")
-                return if (query.isBlank()) AuraActionRoute.AskHermes(input)
+        // Check multi-word search phrases first (exact phrases)
+        if (firstTwoWords in SEARCH_PHRASES) {
+            val query = words.drop(2).joinToString(" ")
+            return if (query.isBlank()) AuraActionRoute.AskHermes(input)
+            else AuraActionRoute.WebSearch(query)
+        }
+
+        return when {
+            firstWord in OPEN_VERBS -> {
+                val target = words.drop(1).joinToString(" ")
+                if (target.isBlank()) AuraActionRoute.AskHermes(input)
+                else AuraActionRoute.OpenApp(target)
+            }
+            firstWord in CALL_VERBS -> {
+                val name = words.drop(1).joinToString(" ")
+                if (name.isBlank()) AuraActionRoute.AskHermes(input)
+                else AuraActionRoute.CallContact(name)
+            }
+            firstWord in TEXT_VERBS || (firstWord == "message" && words.size > 1) -> {
+                // "text Alisha I'm running late" -> name="Alisha", body="I'm running late"
+                val rest = words.drop(1)
+                val name = rest.firstOrNull() ?: ""
+                val body = rest.drop(1).joinToString(" ")
+                if (name.isBlank()) AuraActionRoute.AskHermes(input)
+                else AuraActionRoute.SendText(name, body)
+            }
+            firstWord in SEARCH_VERBS -> {
+                val query = words.drop(1).joinToString(" ")
+                if (query.isBlank()) AuraActionRoute.AskHermes(input)
                 else AuraActionRoute.WebSearch(query)
             }
-
-            return when {
-                firstWord in OPEN_VERBS -> {
-                    val target = words.drop(1).joinToString(" ")
-                    if (target.isBlank()) AuraActionRoute.AskHermes(trimmed)
-                    else AuraActionRoute.OpenApp(target)
-                }
-                firstWord in CALL_VERBS -> {
-                    val name = words.drop(1).joinToString(" ")
-                    if (name.isBlank()) AuraActionRoute.AskHermes(trimmed)
-                    else AuraActionRoute.CallContact(name)
-                }
-                firstWord in TEXT_VERBS || (firstWord == "message" && words.size > 1) -> {
-                    // "text Alisha I'm running late" -> name="Alisha", body="I'm running late"
-                    val rest = words.drop(1)
-                    val name = rest.firstOrNull() ?: ""
-                    val body = rest.drop(1).joinToString(" ")
-                    if (name.isBlank()) AuraActionRoute.AskHermes(trimmed)
-                    else AuraActionRoute.SendText(name, body)
-                }
-                firstWord in SEARCH_VERBS -> {
-                    val query = words.drop(1).joinToString(" ")
-                    if (query.isBlank()) AuraActionRoute.AskHermes(trimmed)
-                    else AuraActionRoute.WebSearch(query)
-                }
-                else -> AuraActionRoute.AskHermes(trimmed)
-            }
+            else -> AuraActionRoute.AskHermes(input)
         }
     }
+}
 
 /** Broadcast receiver to refresh AppIndex on package changes. */
 class PackageChangeReceiver : android.content.BroadcastReceiver() {
