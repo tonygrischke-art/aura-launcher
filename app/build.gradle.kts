@@ -24,6 +24,8 @@ android {
         versionCode = 1
         versionName = "0.1.0-aura"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // Hermes bridge host - override via gradle -PHERMES_HOST=...
+        buildConfigField("String", "HERMES_HOST", "\"http://10.0.2.2:8766/command\"")
     }
 
     buildTypes {

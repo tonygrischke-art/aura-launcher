@@ -4,7 +4,6 @@ import android.content.pm.ApplicationInfo
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -32,6 +31,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.aetheria.aura.ChatMessage
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -49,6 +49,7 @@ fun AuraHomeScreen(
     onFocusChange: (Boolean) -> Unit,
     onMic: () -> Unit,
     status: String?,
+    messages: java.util.List<ChatMessage>,
     modifier: Modifier = Modifier,
 ) {
     var now by remember { mutableStateOf(Date()) }
@@ -106,6 +107,56 @@ fun AuraHomeScreen(
                     },
                     modifier = Modifier.size(side)
                 )
+            }
+        }
+
+        // Chat history above input
+        if (messages.isNotEmpty()) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .height(200.dp)
+                    .padding(bottom = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                androidx.compose.foundation.layout.Box(
+                    Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.BottomCenter
+                ) {
+                    androidx.compose.foundation.layout.Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 8.dp)
+                            .background(Color(0xFF14181F))
+                            .clip(RoundedCornerShape(12.dp)),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        // Show last 10 messages
+                        val displayMessages = messages.takeLast(10)
+                        displayMessages.forEach { msg ->
+                            val time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(msg.timestamp)
+                            val (textColor, align) = when (msg.role) {
+                                ChatMessage.Role.USER -> Color.White to Alignment.End
+                                ChatMessage.Role.AURA -> Color.Cyan to Alignment.Start
+                                ChatMessage.Role.SYSTEM -> Color.Gray to Alignment.CenterHorizontally
+                            }
+                            Row(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                                horizontalAlignment = align
+                            ) {
+                                Text(
+                                    text = "${msg.content}",
+                                    color = textColor,
+                                    fontSize = 14.sp,
+                                    maxLines = 3,
+                                    overflow = androidx.compose.ui.text.TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
 
