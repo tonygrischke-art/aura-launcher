@@ -22,12 +22,6 @@ import com.aetheria.aura.router.CommandRouter
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.rememberCoroutineScope
 import com.aetheria.aura.actions.AuraAction
-import com.aetheria.aura.actions.AuraAction.OpenApp
-import com.aetheria.aura.actions.AuraAction.CallContact
-import com.aetheria.aura.actions.AuraAction.SendText
-import com.aetheria.aura.actions.AuraAction.WebSearch
-import com.aetheria.aura.actions.AuraAction.AskHermes
-import com.aetheria.aura.actions.AuraAction.Unknown
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -56,6 +50,7 @@ class MainActivity : ComponentActivity() {
                             // Route locally first
                             val route = CommandRouter.route(cmd)
                             val startMs = System.currentTimeMillis()
+                            // Exhaustive when on sealed class AuraActionRoute
                             when (route) {
                                 is CommandRouter.AuraActionRoute.OpenApp -> {
                                     val action = AuraAction.OpenApp(route.target)
