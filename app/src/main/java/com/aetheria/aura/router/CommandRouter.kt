@@ -191,8 +191,7 @@ object CommandRouter {
             }
             firstWord in SEARCH_VERBS -> {
                 val query = words.drop(1).joinToString(" ")
-                if (query.isBlank()) AuraActionRoute.AskHermes(input)
-                else AuraActionRoute.WebSearch(query)
+                return AuraActionRoute.WebSearch(query)
             }
             else -> AuraActionRoute.AskHermes(input)
         }
