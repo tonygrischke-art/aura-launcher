@@ -53,38 +53,55 @@ fun WireOrb(
     var yawVel by remember { mutableStateOf(0.0f) }
     var pitchVel by remember { mutableStateOf(0.0f) }
 
-    val spinSpeed by animateMoodFloat(mood) {
-        when (mood) {
-            AuraMood.IDLE -> 0.15f
-            AuraMood.LISTENING -> 0.2f
-            AuraMood.THINKING -> 0.5f
-            AuraMood.ACTING -> 1.0f
-        }
-    }
-    val cyanIntensity by animateMoodFloat(mood) {
-        when (mood) {
-            AuraMood.IDLE -> 1.0f
-            AuraMood.LISTENING -> 1.3f
-            AuraMood.THINKING -> 0.8f
-            AuraMood.ACTING -> 1.5f
-        }
-    }
-    val violetShift by animateMoodFloat(mood) {
-        when (mood) {
-            AuraMood.IDLE -> 0.0f
-            AuraMood.LISTENING -> 0.0f
-            AuraMood.THINKING -> 1.0f
-            AuraMood.ACTING -> 0.5f
-        }
-    }
-    val coreBreath by animateMoodFloat(mood) {
-        when (mood) {
-            AuraMood.IDLE -> 1.0f
-            AuraMood.LISTENING -> 1.2f
-            AuraMood.THINKING -> 0.8f
-            AuraMood.ACTING -> 1.5f
-        }
-    }
+    val spinSpeed by remember {
+        androidx.compose.animation.core.animateFloatAsState(
+            targetValue = when (mood) {
+                AuraMood.IDLE -> 0.15f
+                AuraMood.LISTENING -> 0.2f
+                AuraMood.THINKING -> 0.5f
+                AuraMood.ACTING -> 1.0f
+            },
+            animationSpec = tween(300)
+        )
+    }.value
+
+    val cyanIntensity by remember {
+        androidx.compose.animation.core.animateFloatAsState(
+            targetValue = when (mood) {
+                AuraMood.IDLE -> 1.0f
+                AuraMood.LISTENING -> 1.3f
+                AuraMood.THINKING -> 0.8f
+                AuraMood.ACTING -> 1.5f
+            },
+            animationSpec = tween(300)
+        )
+    }.value
+
+    val violetShift by remember {
+        androidx.compose.animation.core.animateFloatAsState(
+            targetValue = when (mood) {
+                AuraMood.IDLE -> 0.0f
+                AuraMood.LISTENING -> 0.0f
+                AuraMood.THINKING -> 1.0f
+                AuraMood.ACTING -> 0.5f
+            },
+            animationSpec = tween(300)
+        )
+    }.value
+
+    val coreBreath by remember {
+        androidx.compose.animation.core.animateFloatAsState(
+            targetValue = when (mood) {
+                AuraMood.IDLE -> 1.0f
+                AuraMood.LISTENING -> 1.2f
+                AuraMood.THINKING -> 0.8f
+                AuraMood.ACTING -> 1.5f
+            },
+            animationSpec = tween(300)
+        )
+    }.value
+
+    val icosphere = remember { Icosphere(subdivisions = 2) }
 
     val rippleTimer by remember { mutableStateOf(0.0f) }
     val ripplePhase by remember { mutableStateOf(0.0f) }
@@ -288,13 +305,6 @@ fun WireOrb(
     }
 }
 
-private fun animateMoodFloat(targetProvider: () -> Float): Float {
-    return androidx.compose.animation.core.animateFloatAsState(
-        targetValue = targetProvider(),
-        animationSpec = tween(300)
-    ).value
-}
-
 private data class ProjectedVertex(
     val x: Float,
     val y: Float,
@@ -385,13 +395,6 @@ private data class ProjectedVertex(
 )
 
 private data class Edge(val a: Int, val b: Int)
-
-private fun animateMoodFloat(targetProvider: () -> Float): Float {
-    return androidx.compose.animation.core.animateFloatAsState(
-        targetValue = targetProvider(),
-        animationSpec = tween(300)
-    ).value
-}
 
 private fun angularDistance(a: Triple<Float, Float, Float>, b: Triple<Float, Float, Float>): Float {
     val dot = a.first * b.first + a.second * b.second + a.third * b.third
