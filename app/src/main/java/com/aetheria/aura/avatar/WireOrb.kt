@@ -32,10 +32,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.delay
 import kotlin.math.PI
 import kotlin.math.acos
-import kotlin.math.atan2
 import kotlin.math.cos
-import kotlin.math.exp
-import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
@@ -49,18 +46,15 @@ fun WireOrb(
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    // Precomputed icosphere (subdivision 2 = 162 vertices, ~480 edges)
     val icosphere = remember { Icosphere(subdivisions = 2) }
 
-    // Animation state
-    val yaw by remember { mutableStateOf(0.0f) }
-    val pitch by remember { mutableStateOf(0.0f) }
+    var yaw by remember { mutableStateOf(0.0f) }
+    var pitch by remember { mutableStateOf(0.0f) }
     var yawVel by remember { mutableStateOf(0.0f) }
     var pitchVel by remember { mutableStateOf(0.0f) }
 
-    // Mood parameters with smooth blending
     val spinSpeed by animateMoodFloat(mood) {
-        when (it) {
+        when (mood) {
             AuraMood.IDLE -> 0.15f
             AuraMood.LISTENING -> 0.2f
             AuraMood.THINKING -> 0.5f
@@ -68,7 +62,7 @@ fun WireOrb(
         }
     }
     val cyanIntensity by animateMoodFloat(mood) {
-        when (it) {
+        when (mood) {
             AuraMood.IDLE -> 1.0f
             AuraMood.LISTENING -> 1.3f
             AuraMood.THINKING -> 0.8f
@@ -76,29 +70,22 @@ fun WireOrb(
         }
     }
     val violetShift by animateMoodFloat(mood) {
-        when (it) {
+        when (mood) {
             AuraMood.IDLE -> 0.0f
             AuraMood.LISTENING -> 0.0f
             AuraMood.THINKING -> 1.0f
             AuraMood.ACTING -> 0.5f
         }
     }
-    val edgePulseSpeed by animateMoodFloat(mood) {
-        when (it) {
-            AuraMood.IDLE -> 0.0f
-            AuraMood.LISTENING -> 0.0f
-            AuraMood.THINKING -> 0.0f
-            AuraMood.ACTING -> 3.0f
-        }
-    }
     val coreBreath by animateMoodFloat(mood) {
-        when (it) {
+        when (mood) {
             AuraMood.IDLE -> 1.0f
             AuraMood.LISTENING -> 1.2f
             AuraMood.THINKING -> 0.8f
             AuraMood.ACTING -> 1.5f
         }
     }
+
     val rippleTimer by remember { mutableStateOf(0.0f) }
     val ripplePhase by remember { mutableStateOf(0.0f) }
     val rippleOrigin by remember { mutableStateOf(icosphere.vertices[0]) }
@@ -106,19 +93,18 @@ fun WireOrb(
     val corePhase by remember { mutableStateOf(0.0f) }
     val edgePulsePhase by remember { mutableStateOf(0.0f) }
     val lastFrameTime by remember { mutableStateOf(System.nanoTime()) }
+    var yawVel by remember { mutableStateOf(0.0f) }
+    var pitchVel by remember { mutableStateOf(0.0f) }
 
-    // Animation loop - only runs when lifecycle is STARTED
     LaunchedEffect(lifecycleOwner) {
         repeatOnLifecycle(lifecycleOwner, Lifecycle.State.STARTED) {
             var frameCount = 0
             var lastLog = System.nanoTime()
-            var frameStart = System.nanoTime()
             while (true) {
                 val now = System.nanoTime()
                 val dt = (now - lastFrameTime) / 1_000_000_000f
                 lastFrameTime = now
 
-                // Auto-rotate when not dragging
                 if (Math.abs(yawVel) < 0.001f && Math.abs(pitchVel) < 0.001f) {
                     yaw += spinSpeed * dt * 0.5f
                 } else {
@@ -126,13 +112,11 @@ fun WireOrb(
                     pitchVel *= 0.95f
                 }
 
-                // Update ripple
                 if (rippleTimer > 0f) {
                     rippleTimer = max(0f, rippleTimer - dt)
                     ripplePhase = 1f - rippleTimer / 0.8f
                 }
 
-                // Mood ripple timer (LISTENING)
                 if (mood == AuraMood.LISTENING) {
                     rippleAccumulator += dt
                     if (rippleAccumulator >= 1.2f) {
@@ -144,10 +128,8 @@ fun WireOrb(
                     }
                 }
 
-                // Core breathing
                 corePhase += dt * coreBreath * 0.5f
 
-                // ACTING edge pulses
                 val edgePulseSpeed = when (mood) {
                     AuraMood.ACTING -> 3.0f
                     else -> 0.0f
@@ -157,13 +139,14 @@ fun WireOrb(
                     if (edgePulsePhase > 1f) edgePulsePhase -= 1f
                 }
 
-                // Frame time logging
+                corePhase += dt * coreBreath * 0.5f
+
                 frameCount++
-                if (now - lastLog >= 5_000_000_000L) {
-                    val avgMs = (now - lastLog) / 1_000_000f / frameCount
+                if (System.nanoTime() - lastLog >= 5_000_000_000L) {
+                    val avgMs = (System.nanoTime() - lastLog) / 1_000_000f / frameCount
                     Log.d("AuraWireOrb", "avg frame time: ${avgMs:.2f}ms over $frameCount frames")
                     frameCount = 0
-                    lastLog = now
+                    lastLog = System.nanoTime()
                 }
 
                 kotlinx.coroutines.delay(16)
@@ -171,7 +154,6 @@ fun WireOrb(
         }
     }
 
-    // Drag handling
     Box(
         modifier = modifier
             .size(280.dp)
@@ -180,7 +162,7 @@ fun WireOrb(
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDragStart = { yawVel = 0f; pitchVel = 0f },
-                    onDrag = { delta ->
+                    onDrag = { change, delta ->
                         yawVel = -delta.x * 0.01f
                         pitchVel = delta.y * 0.01f
                         yaw += yawVel
@@ -202,9 +184,8 @@ fun WireOrb(
             val size = min(this.size.width, this.size.height)
             val centerX = this.size.width / 2f
             val centerY = this.size.height / 2f
-            val radius = size * 0.35f // 70% of box
+            val radius = size * 0.35f
 
-            // Project all vertices with rotation
             val cosPitch = cos(pitch)
             val sinPitch = sin(pitch)
             val cosYaw = cos(yaw)
@@ -225,7 +206,6 @@ fun WireOrb(
                 ProjectedVertex(px, py, pz, screenR)
             }
 
-            // Ripple propagation
             val rippleProgress = ripplePhase
             val projectedWithRipple = projected.mapIndexed { i, v ->
                 val dist = angularDistance(rippleOrigin, icosphere.vertices[i])
@@ -235,24 +215,18 @@ fun WireOrb(
                 } else v
             }
 
-            // Render edges
-            val edgePaint = Paint()
-            edgePaint.style = Paint.Style.Stroke
-            edgePaint.strokeWidth = 1.5f
-            edgePaint.strokeCap = StrokeCap.Round
-
             for (edge in icosphere.edges) {
                 val a = projectedWithRipple[edge.a]
                 val b = projectedWithRipple[edge.b]
                 val avgZ = (a.z + b.z) / 2f
                 val isFront = avgZ > 0f
-                val depthAlpha = (1f + avgZ) / 2f // -1..1 -> 0..1
+                val depthAlpha = (1f + avgZ) / 2f
 
                 val baseCyan = lerp(Color(0xFF00E5FF), Color(0xFF00FFFF), cyanIntensity - 1f)
                 val baseViolet = lerp(Color(0xFF8B5CF6), Color(0xFFBB86FC), violetShift)
                 val color = if (violetShift > 0f) lerp(baseCyan, baseViolet, violetShift) else baseCyan
 
-                var alpha = if (isFront) 0.85f * depthAlpha else 0.25f * depthAlpha
+                var alpha = if (a.z > 0f) 0.85f * depthAlpha else 0.25f * depthAlpha
 
                 val edgePulseSpeed = when (mood) {
                     AuraMood.ACTING -> 3.0f
@@ -271,7 +245,6 @@ fun WireOrb(
                 )
             }
 
-            // Draw vertices (nodes)
             for (v in projectedWithRipple) {
                 val depthAlpha = (1f + v.z) / 2f
                 val baseAlpha = 0.9f * depthAlpha
@@ -281,7 +254,6 @@ fun WireOrb(
                 drawCircle(color, radius = v.screenR, center = Offset(v.x, v.y))
             }
 
-            // Core: pulsing violet radial gradient
             val coreRadius = radius * 0.18f * coreBreath * (1f + 0.3f * sin(corePhase * 2f * PI))
             val coreColor = Color(0xFF8B5CF6).copy(alpha = 0.9f)
             drawCircle(
@@ -294,7 +266,6 @@ fun WireOrb(
                 center = Offset(centerX, centerY)
             )
 
-            // Two concentric violet rings
             for (i in 1..2) {
                 val ringRadius = coreRadius * (1f + i * 0.25f)
                 val ringAlpha = (0.4f - i * 0.15f) * (1f + 0.2f * sin(corePhase * 2f * PI + i))
@@ -312,16 +283,14 @@ fun WireOrb(
         }
     }
 
-    // Cleanup
     DisposableEffect(Unit) {
         onDispose { }
     }
 }
 
-private fun animateMoodFloat(mood: AuraMood, targetProvider: (AuraMood) -> Float): Float {
-    val target = targetProvider(mood)
+private fun animateMoodFloat(targetProvider: () -> Float): Float {
     return androidx.compose.animation.core.animateFloatAsState(
-        targetValue = target,
+        targetValue = targetProvider(),
         animationSpec = tween(300)
     ).value
 }
@@ -349,7 +318,7 @@ private class Icosphere(val subdivisions: Int) {
         ).map { v ->
             val len = sqrt(v.first * v.first + v.second * v.second + v.third * v.third)
             Triple(v.first / len, v.second / len, v.third / len)
-        }
+        )
 
         val faces = listOf(
             Triple(0, 11, 5), Triple(0, 5, 1), Triple(0, 1, 7), Triple(0, 7, 10), Triple(0, 10, 11),
@@ -407,6 +376,32 @@ private class Icosphere(val subdivisions: Int) {
     }
 }
 
+private data class ProjectedVertex(
+    val x: Float,
+    val y: Float,
+    val z: Float,
+    val screenR: Float,
+    val rippleBoost: Float = 0f
+)
+
+private data class Edge(val a: Int, val b: Int)
+
+private fun animateMoodFloat(targetProvider: () -> Float): Float {
+    return androidx.compose.animation.core.animateFloatAsState(
+        targetValue = targetProvider(),
+        animationSpec = tween(300)
+    ).value
+}
+
+private fun angularDistance(a: Triple<Float, Float, Float>, b: Triple<Float, Float, Float>): Float {
+    val dot = a.first * b.first + a.second * b.second + a.third * b.third
+    return acos(max(-1f, min(1f, dot)))
+}
+
+private fun lerp(a: Color, b: Color, t: Float): Color {
+    return Color.lerp(a, b, t.coerceIn(0f, 1f))
+}
+
 private var frameCount = 0
 private var lastLog = System.nanoTime()
 private var corePhase = 0.0f
@@ -418,15 +413,10 @@ private var rippleAccumulator = 0.0f
 private var rippleOrigin = Triple(0f, 0f, 1f)
 private var yawVel = 0.0f
 private var pitchVel = 0.0f
-
-private fun angularDistance(a: Triple<Float, Float, Float>, b: Triple<Float, Float, Float>): Float {
-    val dot = a.first * b.first + a.second * b.second + a.third * b.third
-    return acos(max(-1f, min(1f, dot)))
-}
-
-private fun lerp(a: Color, b: Color, t: Float): Color {
-    return Color.lerp(a, b, t.coerceIn(0f, 1f))
-}
-
 private var yaw = 0.0f
 private var pitch = 0.0f
+private var spinSpeed = 0.15f
+private var cyanIntensity = 1.0f
+private var violetShift = 0.0f
+private var coreBreath = 1.0f
+private var coreColor = Color(0xFF8B5CF6).copy(alpha = 0.9f)
