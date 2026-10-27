@@ -103,13 +103,13 @@ fun WireOrb(
 
     val icosphere = remember { Icosphere(subdivisions = 2) }
 
-    val rippleTimer by remember { mutableStateOf(0.0f) }
-    val ripplePhase by remember { mutableStateOf(0.0f) }
-    val rippleOrigin by remember { mutableStateOf(icosphere.vertices[0]) }
-    val rippleAccumulator by remember { mutableStateOf(0.0f) }
-    val corePhase by remember { mutableStateOf(0.0f) }
-    val edgePulsePhase by remember { mutableStateOf(0.0f) }
-    val lastFrameTime by remember { mutableStateOf(System.nanoTime()) }
+    var rippleTimer by remember { mutableStateOf(0.0f) }
+    var ripplePhase by remember { mutableStateOf(0.0f) }
+    var rippleOrigin by remember { mutableStateOf(icosphere.vertices[0]) }
+    var rippleAccumulator by remember { mutableStateOf(0.0f) }
+    var corePhase by remember { mutableStateOf(0.0f) }
+    var edgePulsePhase by remember { mutableStateOf(0.0f) }
+    var lastFrameTime by remember { mutableStateOf(System.nanoTime()) }
     var yawVel by remember { mutableStateOf(0.0f) }
     var pitchVel by remember { mutableStateOf(0.0f) }
 
