@@ -147,7 +147,7 @@ object CommandRouter {
     private val TEXT_VERBS = setOf("text", "message", "send")
     // search|google|look up|find|search for <query> and exact phrases "what is the weather" / "weather"
     private val SEARCH_VERBS = setOf("search", "google", "look up", "lookup", "find")
-    private val SEARCH_PHRASES = listOf("what is the weather", "weather")
+    private val WEATHER_PHRASE = "what is the weather"
 
     /**
      * Route a raw user command to an action route.
@@ -157,15 +157,17 @@ object CommandRouter {
         val trimmed = input.trim()
         val words = trimmed.split("\\s+".toRegex())
         val firstWord = words.firstOrNull()?.lowercase() ?: ""
-        val firstTwoWords = if (words.size >= 2) words.take(2).joinToString(" ").lowercase() else ""
         if (trimmed.isBlank()) return AuraActionRoute.AskHermes(input)
 
-        // Check multi-word search phrases first (exact phrases)
-        if (firstTwoWords in SEARCH_PHRASES) {
-            val query = words.drop(2).joinToString(" ")
-            return if (query.isBlank()) AuraActionRoute.AskHermes(input)
+        // Check exact phrase "what is the weather" first
+        if (trimmed.lowercase().startsWith(WEATHER_PHRASE)) {
+            val query = trimmed.substring(WEATHER_PHRASE.length).trim()
+            return if (query.isBlank()) AuraActionRoute.WebSearch("")
             else AuraActionRoute.WebSearch(query)
         }
+
+        val firstWord = words.firstOrNull()?.lowercase() ?: ""
+        if (firstWord.isBlank()) return AuraActionRoute.AskHermes(input)
 
         return when {
             firstWord in OPEN_VERBS -> {
