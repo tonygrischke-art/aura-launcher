@@ -1,5 +1,6 @@
 package com.aetheria.aura
 
+import android.app.SearchManager
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.compose.setContent
@@ -55,29 +56,29 @@ class MainActivity : ComponentActivity() {
                             when (route) {
                                 is AuraActionRoute.OpenApp -> {
                                     val action = AuraAction.OpenApp(route.target)
-                                    val result = ActionExecutor.execute(action, pm, appIndex)
+                                    val result = ActionExecutor.execute(action, this@MainActivity, pm, appIndex)
                                     Log.d("AuraRouter", "Routed OPEN_APP target='${route.target}' action=$result matchTimeMs=${System.currentTimeMillis() - startMs}")
                                 }
                                 is AuraActionRoute.CallContact -> {
                                     val action = AuraAction.CallContact(route.name)
-                                    val result = ActionExecutor.execute(action, pm, appIndex)
+                                    val result = ActionExecutor.execute(action, this@MainActivity, pm, appIndex)
                                     Log.d("AuraRouter", "Routed CALL_CONTACT name='${route.name}' action=$result matchTimeMs=${System.currentTimeMillis() - startMs}")
                                 }
                                 is AuraActionRoute.SendText -> {
                                     val action = AuraAction.SendText(route.name, route.body)
-                                    val result = ActionExecutor.execute(action, pm, appIndex)
+                                    val result = ActionExecutor.execute(action, this@MainActivity, pm, appIndex)
                                     Log.d("AuraRouter", "Routed SEND_TEXT name='${route.name}' body='${route.body}' action=$result matchTimeMs=${System.currentTimeMillis() - startMs}")
                                 }
                                 is AuraActionRoute.WebSearch -> {
                                     val action = AuraAction.WebSearch(route.query)
-                                    val result = ActionExecutor.execute(action, pm, appIndex)
+                                    val result = ActionExecutor.execute(action, this@MainActivity, pm, appIndex)
                                     Log.d("AuraRouter", "Routed WEB_SEARCH query='${route.query}' action=$result matchTimeMs=${System.currentTimeMillis() - startMs}")
                                 }
                                 is AuraActionRoute.AskHermes -> {
                                     Log.d("AuraRouter", "Routed ASK_HERMES input='${route.input}' matchTimeMs=${System.currentTimeMillis() - startMs}")
                                     val result = HermesClient.send(route.input)
                                     phase = AuraMood.ACTING
-                                    val execResult = ActionExecutor.execute(result, pm, appIndex)
+                                    val execResult = ActionExecutor.execute(result, this@MainActivity, pm, appIndex)
                                     delay(900)
                                 }
                             }
