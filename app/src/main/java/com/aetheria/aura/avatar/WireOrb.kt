@@ -52,12 +52,12 @@ fun WireOrb(
     var yawVel by remember { mutableStateOf(0.0f) }
     var pitchVel by remember { mutableStateOf(0.0f) }
 
-    val spinSpeed = when (mood) {
+    var spinSpeed by remember { mutableStateOf(when (mood) {
         AuraMood.IDLE -> 0.15f
         AuraMood.LISTENING -> 0.2f
         AuraMood.THINKING -> 0.5f
         AuraMood.ACTING -> 1.0f
-    }
+    }) }
 
     val cyanIntensity = when (mood) {
         AuraMood.IDLE -> 1.0f
