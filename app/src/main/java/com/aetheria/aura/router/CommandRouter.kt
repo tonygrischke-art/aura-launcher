@@ -149,7 +149,8 @@ object CommandRouter {
      */
     fun route(input: String): AuraActionRoute {
         val trimmed = input.trim()
-        val firstWord = trimmed.split("\\s+".toRegex()).firstOrNull()?.lowercase() ?: ""
+        val words = trimmed.split("\\s+".toRegex())
+        val firstWord = words.firstOrNull()?.lowercase() ?: ""
         if (trimmed.isBlank()) return AuraActionRoute.AskHermes(input)
 
         return when {
