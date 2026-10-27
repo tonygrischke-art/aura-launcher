@@ -1,8 +1,6 @@
 package com.aetheria.aura.avatar
 
 import android.util.Log
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -54,53 +52,33 @@ fun WireOrb(
     var yawVel by remember { mutableStateOf(0.0f) }
     var pitchVel by remember { mutableStateOf(0.0f) }
 
-    val spinSpeed = remember(mood) {
-        androidx.compose.animation.core.animateFloatAsState(
-            targetValue = when (mood) {
-                AuraMood.IDLE -> 0.15f
-                AuraMood.LISTENING -> 0.2f
-                AuraMood.THINKING -> 0.5f
-                AuraMood.ACTING -> 1.0f
-            },
-            animationSpec = tween(300)
-        )
-    }.value
+    val spinSpeed = when (mood) {
+        AuraMood.IDLE -> 0.15f
+        AuraMood.LISTENING -> 0.2f
+        AuraMood.THINKING -> 0.5f
+        AuraMood.ACTING -> 1.0f
+    }
 
-    val cyanIntensity = remember(mood) {
-        androidx.compose.animation.core.animateFloatAsState(
-            targetValue = when (mood) {
-                AuraMood.IDLE -> 1.0f
-                AuraMood.LISTENING -> 1.3f
-                AuraMood.THINKING -> 0.8f
-                AuraMood.ACTING -> 1.5f
-            },
-            animationSpec = tween(300)
-        )
-    }.value
+    val cyanIntensity = when (mood) {
+        AuraMood.IDLE -> 1.0f
+        AuraMood.LISTENING -> 1.3f
+        AuraMood.THINKING -> 0.8f
+        AuraMood.ACTING -> 1.5f
+    }
 
-    val violetShift = remember(mood) {
-        androidx.compose.animation.core.animateFloatAsState(
-            targetValue = when (mood) {
-                AuraMood.IDLE -> 0.0f
-                AuraMood.LISTENING -> 0.0f
-                AuraMood.THINKING -> 1.0f
-                AuraMood.ACTING -> 0.5f
-            },
-            animationSpec = tween(300)
-        )
-    }.value
+    val violetShift = when (mood) {
+        AuraMood.IDLE -> 0.0f
+        AuraMood.LISTENING -> 0.0f
+        AuraMood.THINKING -> 1.0f
+        AuraMood.ACTING -> 0.5f
+    }
 
-    val coreBreath = remember(mood) {
-        androidx.compose.animation.core.animateFloatAsState(
-            targetValue = when (mood) {
-                AuraMood.IDLE -> 1.0f
-                AuraMood.LISTENING -> 1.2f
-                AuraMood.THINKING -> 0.8f
-                AuraMood.ACTING -> 1.5f
-            },
-            animationSpec = tween(300)
-        )
-    }.value
+    val coreBreath = when (mood) {
+        AuraMood.IDLE -> 1.0f
+        AuraMood.LISTENING -> 1.2f
+        AuraMood.THINKING -> 0.8f
+        AuraMood.ACTING -> 1.5f
+    }
 
     val icosphere = remember { Icosphere(subdivisions = 2) }
 
