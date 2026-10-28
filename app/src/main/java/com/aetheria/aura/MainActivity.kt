@@ -60,7 +60,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private var composeInput: String = ""
     private var composeMessages: java.util.ArrayList<ChatMessage> = ArrayList()
     private var composeScope: kotlinx.coroutines.CoroutineScope? = null
 
@@ -99,8 +98,9 @@ class MainActivity : ComponentActivity() {
                 }
 
                 fun addMessage(role: ChatMessage.Role, content: String) {
-                    messages.value.add(ChatMessage(role = role, content = content))
-                    composeMessages.add(ChatMessage(role = role, content = content))
+                    val msg = ChatMessage(role = role, content = content)
+                    messages.value.add(msg)
+                    composeMessages.add(msg)
                 }
 
                 fun submit() {
@@ -142,14 +142,6 @@ class MainActivity : ComponentActivity() {
     fun doSubmit(cmd: String) {
         val trimmed = cmd.trim()
         if (trimmed.isEmpty()) return
-        
-        // Update compose input state
-        composeInput = ""
-        
-        runOnUiThread {
-            // Find the current input state and clear it
-            // The compose input state is managed separately
-        }
         
         addMessageInternal(ChatMessage.Role.USER, trimmed)
         Log.d("AuraRouter", "submit cmd='$trimmed'")
@@ -198,7 +190,7 @@ class MainActivity : ComponentActivity() {
                         // Add placeholder message for streaming
                         val placeholderMsg = ChatMessage(id = messageId, role = ChatMessage.Role.AURA, content = "")
                         runOnUiThread { 
-                            composeMessages.add(placeholderMsg)
+                            addMessageInternal(ChatMessage.Role.AURA, "")
                         }
                         
                         // Convert local messages to NimClient messages
@@ -219,6 +211,12 @@ class MainActivity : ComponentActivity() {
                                     if (idx >= 0) {
                                         val current = composeMessages[idx]
                                         composeMessages[idx] = current.copy(content = current.content + token)
+                                        // Also update Compose state
+                                        val msgIdx = messages.value.indexOfFirst { it.id == messageId }
+                                        if (msgIdx >= 0) {
+                                            val currentMsg = messages.value[msgIdx]
+                                            messages.value[msgIdx] = currentMsg.copy(content = currentMsg.content + token)
+                                        }
                                     }
                                 }
                             },
@@ -232,6 +230,11 @@ class MainActivity : ComponentActivity() {
                                             composeMessages[finalIdx] = current.copy(content = "(no response)")
                                         }
                                     }
+                                    // Sync Compose state
+                                    val msgIdx = messages.value.indexOfFirst { it.id == messageId }
+                                    if (msgIdx >= 0) {
+                                        messages.value[msgIdx] = messages.value[msgIdx].copy(content = composeMessages[finalIdx].content)
+                                    }
                                 }
                                 Log.d("AuraRouter", "NimClient stream complete: success=$success tokens=$tokenCount totalTime=${totalTime}ms")
                                 if (!success) {
@@ -239,6 +242,11 @@ class MainActivity : ComponentActivity() {
                                         val errIdx = composeMessages.indexOfFirst { it.id == messageId }
                                         if (errIdx >= 0) {
                                             composeMessages[errIdx] = composeMessages[errIdx].copy(content = "NIM unreachable (stream failed)")
+                                        }
+                                        // Sync Compose state
+                                        val msgIdx = messages.value.indexOfFirst { it.id == messageId }
+                                        if (msgIdx >= 0) {
+                                            messages.value[msgIdx] = messages.value[msgIdx].copy(content = "NIM unreachable (stream failed)")
                                         }
                                     }
                                 }
@@ -249,6 +257,11 @@ class MainActivity : ComponentActivity() {
                                     val errorIdx = composeMessages.indexOfFirst { it.id == messageId }
                                     if (errorIdx >= 0) {
                                         composeMessages[errorIdx] = composeMessages[errorIdx].copy(content = "NIM unreachable ($error)")
+                                    }
+                                    // Sync Compose state
+                                    val msgIdx = messages.value.indexOfFirst { it.id == messageId }
+                                    if (msgIdx >= 0) {
+                                        messages.value[msgIdx] = messages.value[msgIdx].copy(content = "NIM unreachable ($error)")
                                     }
                                 }
                             }
@@ -267,8 +280,28 @@ class MainActivity : ComponentActivity() {
 
     private fun addMessageInternal(role: ChatMessage.Role, content: String) {
         runOnUiThread {
-            composeMessages.add(ChatMessage(role = role, content = content))
+            val msg = ChatMessage(role = role, content = content)
+            composeMessages.add(msg)
+            // Also update Compose state
+            val msgs = mutableStateOf(messages.value).value // This won't work directly
+            // We need a different approach
         }
+    }
+    
+    // Better approach: use a mutableStateOf for messages that we can access from anywhere
+    private val messagesState = androidx.compose.runtime.mutableStateOf<java.util.ArrayList<ChatMessage>>(ArrayList())
+
+    private fun addMessageInternal(role: ChatMessage.Role, content: String) {
+        val msg = ChatMessage(role = role, content = content)
+        runOnUiThread {
+            composeMessages.add(msg)
+            messagesState.value.add(msg)
+        }
+    }
+    
+    // Update the getter for Compose
+    fun getMessagesState(): androidx.compose.runtime.MutableState<java.util.ArrayList<ChatMessage>> {
+        return messagesState
     }
 
     private fun readNimKey(): String {
