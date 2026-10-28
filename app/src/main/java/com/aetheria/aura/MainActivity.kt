@@ -59,6 +59,10 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private var composeInput: String = ""
+    private var composeMessages: java.util.ArrayList<ChatMessage> = ArrayList()
+    private var composeScope: kotlinx.coroutines.CoroutineScope? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Initialize AppIndex with auto-refresh on package changes
@@ -87,112 +91,23 @@ class MainActivity : ComponentActivity() {
                 val messages = remember { mutableStateOf<java.util.ArrayList<ChatMessage>>(ArrayList()) }
                 val scope = rememberCoroutineScope()
                 
+                // Sync with class-level state
+                if (composeScope == null) composeScope = scope
+                if (composeMessages.isEmpty() && messages.value.isNotEmpty()) {
+                    composeMessages.addAll(messages.value)
+                }
+
                 fun addMessage(role: ChatMessage.Role, content: String) {
                     messages.value.add(ChatMessage(role = role, content = content))
+                    composeMessages.add(ChatMessage(role = role, content = content))
                 }
 
                 fun submit() {
                     val cmd = input.trim(); if (cmd.isEmpty()) return
                     input = ""; status = null
-                    addMessage(ChatMessage.Role.USER, cmd)
-                    Log.d("AuraRouter", "submit cmd='$cmd'")
-                    scope.launch {
-                        phase = AuraMood.THINKING
-                        try {
-                            // Route locally first
-                            val route = CommandRouter.route(cmd)
-                            Log.d("AuraRouter", "route=$route")
-                            val startMs = System.currentTimeMillis()
-                            // Exhaustive when on sealed class AuraActionRoute
-                            when (route) {
-                                is AuraActionRoute.OpenApp -> {
-                                    val action = AuraAction.OpenApp(route.target)
-                                    val result = ActionExecutor.execute(action, this@MainActivity, pm, appIndex)
-                                    Log.d("AuraRouter", "Routed OPEN_APP target='${route.target}' action=$result matchTimeMs=${System.currentTimeMillis() - startMs}")
-                                    if (result == "error") addMessage(ChatMessage.Role.SYSTEM, "Could not find app: ${route.target}")
-                                }
-                                is AuraActionRoute.CallContact -> {
-                                    val action = AuraAction.CallContact(route.name)
-                                    val result = ActionExecutor.execute(action, this@MainActivity, pm, appIndex)
-                                    Log.d("AuraRouter", "Routed CALL_CONTACT name='${route.name}' action=$result matchTimeMs=${System.currentTimeMillis() - startMs}")
-                                }
-                                is AuraActionRoute.SendText -> {
-                                    val action = AuraAction.SendText(route.name, route.body)
-                                    val result = ActionExecutor.execute(action, this@MainActivity, pm, appIndex)
-                                    Log.d("AuraRouter", "Routed SEND_TEXT name='${route.name}' body='${route.body}' action=$result matchTimeMs=${System.currentTimeMillis() - startMs}")
-                                }
-                                is AuraActionRoute.WebSearch -> {
-                                    val action = AuraAction.WebSearch(route.query)
-                                    val result = ActionExecutor.execute(action, this@MainActivity, pm, appIndex)
-                                    Log.d("AuraRouter", "Routed WEB_SEARCH query='${route.query}' action=$result matchTimeMs=${System.currentTimeMillis() - startMs}")
-                                }
-                                is AuraActionRoute.AskHermes -> {
-                                    Log.d("AuraRouter", "Routed ASK_HERMES input='${route.input}' matchTimeMs=${System.currentTimeMillis() - startMs}")
-                                    val startTime = System.currentTimeMillis()
-                                    var firstToken = false
-                                    var tokenCount = 0
-                                    val messageId = System.currentTimeMillis()
-                                    
-                                    // Add placeholder message for streaming
-                                    val placeholderMsg = ChatMessage(id = messageId, role = ChatMessage.Role.AURA, content = "")
-                                    messages.value.add(placeholderMsg)
-                                    
-                                    // Convert local messages to NimClient messages
-                                    val nimMessages = messages.value.map { com.aetheria.aura.nim.NimChatMessage(it.role.name.lowercase(), it.content) }.toList()
-                                    
-                                    nimClient.streamChat(
-                                        messages = nimMessages,
-                                        onToken = { token ->
-                                            if (!firstToken) {
-                                                val ttfb = System.currentTimeMillis() - startTime
-                                                Log.d("AuraRouter", "TTFB: ${ttfb}ms")
-                                                firstToken = true
-                                            }
-                                            tokenCount++
-                                            // Update the streaming message
-                                            val idx = messages.value.indexOfFirst { it.id == messageId }
-                                            if (idx >= 0) {
-                                                val current = messages.value[idx]
-                                                messages.value[idx] = current.copy(content = current.content + token)
-                                            }
-                                        },
-                                        onComplete = { success ->
-                                            val totalTime = System.currentTimeMillis() - startTime
-                                            val finalIdx = messages.value.indexOfFirst { it.id == messageId }
-                                            if (finalIdx >= 0) {
-                                                val current = messages.value[finalIdx]
-                                                if (current.content.isEmpty()) {
-                                                    messages.value[finalIdx] = current.copy(content = "(no response)")
-                                                }
-                                            }
-                                            Log.d("AuraRouter", "NimClient stream complete: success=$success tokens=$tokenCount totalTime=${totalTime}ms")
-                                            if (!success) {
-                                                val errIdx = messages.value.indexOfFirst { it.id == messageId }
-                                                if (errIdx >= 0) {
-                                                    messages.value[errIdx] = messages.value[errIdx].copy(content = "NIM unreachable (stream failed)")
-                                                }
-                                            }
-                                        },
-                                        onError = { error ->
-                                            Log.e("AuraRouter", "NimClient error: $error")
-                                            val errorIdx = messages.value.indexOfFirst { it.id == messageId }
-                                            if (errorIdx >= 0) {
-                                                messages.value[errorIdx] = messages.value[errorIdx].copy(content = "NIM unreachable ($error)")
-                                            }
-                                        }
-                                    )
-                                }
-                            }
-                        } catch (e: Exception) {
-                            Log.e("AuraRouter", "submit failed cmd='$cmd'", e)
-                            status = "Error: ${e.message}"
-                            addMessage(ChatMessage.Role.SYSTEM, "Error: ${e.message}")
-                        } finally {
-                            phase = AuraMood.IDLE
-                        }
-                    }
+                    doSubmit(cmd)
                 }
-                
+
                 fun startListening() {
                     if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
                         startSpeechRecognition()
@@ -200,12 +115,12 @@ class MainActivity : ComponentActivity() {
                         requestPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                     }
                 }
-                
+
                 fun stopListening() {
                     speechRecognizer?.stopListening()
                     isListening = false
                 }
-                
+
                 val shown = if (phase != AuraMood.IDLE) phase else if (focused) AuraMood.LISTENING else AuraMood.IDLE
                 AuraHomeScreen(
                     mood = shown,
@@ -213,8 +128,8 @@ class MainActivity : ComponentActivity() {
                     onInputChange = { input = it },
                     onSubmit = { submit() },
                     onFocusChange = { focused = it },
-                    onMic = { 
-                        if (isListening) stopListening() else startListening() 
+                    onMic = {
+                        if (isListening) stopListening() else startListening()
                     },
                     status = status,
                     messages = messages.value as List<ChatMessage>
@@ -222,7 +137,147 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-    
+
+    fun doSubmit(cmd: String) {
+        val trimmed = cmd.trim()
+        if (trimmed.isEmpty()) return
+        
+        // Update compose input state
+        composeInput = ""
+        
+        runOnUiThread {
+            // Find the current input state and clear it
+            // The compose input state is managed separately
+        }
+        
+        addMessageInternal(ChatMessage.Role.USER, trimmed)
+        Log.d("AuraRouter", "submit cmd='$trimmed'")
+        composeScope?.launch {
+            phase = AuraMood.THINKING
+            try {
+                // Route locally first
+                val route = CommandRouter.route(trimmed)
+                Log.d("AuraRouter", "route=$route")
+                val startMs = System.currentTimeMillis()
+                // Exhaustive when on sealed class AuraActionRoute
+                when (route) {
+                    is AuraActionRoute.OpenApp -> {
+                        val action = AuraAction.OpenApp(route.target)
+                        val result = ActionExecutor.execute(action, this@MainActivity, packageManager, AppIndexManager.get() ?: AppIndex(this))
+                        Log.d("AuraRouter", "Routed OPEN_APP target='${route.target}' action=$result matchTimeMs=${System.currentTimeMillis() - startMs}")
+                        if (result == "error") addMessageInternal(ChatMessage.Role.SYSTEM, "Could not find app: ${route.target}")
+                    }
+                    is AuraActionRoute.CallContact -> {
+                        val action = AuraAction.CallContact(route.name)
+                        val result = ActionExecutor.execute(action, this@MainActivity, packageManager, AppIndexManager.get() ?: AppIndex(this))
+                        Log.d("AuraRouter", "Routed CALL_CONTACT name='${route.name}' action=$result matchTimeMs=${System.currentTimeMillis() - startMs}")
+                    }
+                    is AuraActionRoute.SendText -> {
+                        val action = AuraAction.SendText(route.name, route.body)
+                        val result = ActionExecutor.execute(action, this@MainActivity, packageManager, AppIndexManager.get() ?: AppIndex(this))
+                        Log.d("AuraRouter", "Routed SEND_TEXT name='${route.name}' body='${route.body}' action=$result matchTimeMs=${System.currentTimeMillis() - startMs}")
+                    }
+                    is AuraActionRoute.WebSearch -> {
+                        val action = AuraAction.WebSearch(route.query)
+                        val result = ActionExecutor.execute(action, this@MainActivity, packageManager, AppIndexManager.get() ?: AppIndex(this))
+                        Log.d("AuraRouter", "Routed WEB_SEARCH query='${route.query}' action=$result matchTimeMs=${System.currentTimeMillis() - startMs}")
+                    }
+                    is AuraActionRoute.AskHermes -> {
+                        Log.d("AuraRouter", "Routed ASK_HERMES input='${route.input}' matchTimeMs=${System.currentTimeMillis() - startMs}")
+                        val startTime = System.currentTimeMillis()
+                        var firstToken = false
+                        var tokenCount = 0
+                        val messageId = System.currentTimeMillis()
+                        
+                        // Add placeholder message for streaming
+                        val placeholderMsg = ChatMessage(id = messageId, role = ChatMessage.Role.AURA, content = "")
+                        runOnUiThread { 
+                            composeMessages.add(placeholderMsg)
+                        }
+                        
+                        // Convert local messages to NimClient messages
+                        val nimMessages = composeMessages.map { com.aetheria.aura.nim.NimChatMessage(it.role.name.lowercase(), it.content) }.toList()
+                        
+                        nimClient.streamChat(
+                            messages = nimMessages,
+                            onToken = { token ->
+                                if (!firstToken) {
+                                    val ttfb = System.currentTimeMillis() - startTime
+                                    Log.d("AuraRouter", "TTFB: ${ttfb}ms")
+                                    firstToken = true
+                                }
+                                tokenCount++
+                                // Update the streaming message
+                                runOnUiThread {
+                                    val idx = composeMessages.indexOfFirst { it.id == messageId }
+                                    if (idx >= 0) {
+                                        val current = composeMessages[idx]
+                                        composeMessages[idx] = current.copy(content = current.content + token)
+                                    }
+                                }
+                            },
+                            onComplete = { success ->
+                                val totalTime = System.currentTimeMillis() - startTime
+                                runOnUiThread {
+                                    val finalIdx = composeMessages.indexOfFirst { it.id == messageId }
+                                    if (finalIdx >= 0) {
+                                        val current = composeMessages[finalIdx]
+                                        if (current.content.isEmpty()) {
+                                            composeMessages[finalIdx] = current.copy(content = "(no response)")
+                                        }
+                                    }
+                                }
+                                Log.d("AuraRouter", "NimClient stream complete: success=$success tokens=$tokenCount totalTime=${totalTime}ms")
+                                if (!success) {
+                                    runOnUiThread {
+                                        val errIdx = composeMessages.indexOfFirst { it.id == messageId }
+                                        if (errIdx >= 0) {
+                                            composeMessages[errIdx] = composeMessages[errIdx].copy(content = "NIM unreachable (stream failed)")
+                                        }
+                                    }
+                                }
+                            },
+                            onError = { error ->
+                                Log.e("AuraRouter", "NimClient error: $error")
+                                runOnUiThread {
+                                    val errorIdx = composeMessages.indexOfFirst { it.id == messageId }
+                                    if (errorIdx >= 0) {
+                                        composeMessages[errorIdx] = composeMessages[errorIdx].copy(content = "NIM unreachable ($error)")
+                                    }
+                                }
+                            }
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("AuraRouter", "submit failed cmd='$trimmed'", e)
+                runOnUiThread { addMessageInternal(ChatMessage.Role.SYSTEM, "Error: ${e.message}") }
+            } finally {
+                runOnUiThread { phase = AuraMood.IDLE }
+            }
+        }
+    }
+
+    private fun addMessageInternal(role: ChatMessage.Role, content: String) {
+        runOnUiThread {
+            composeMessages.add(ChatMessage(role = role, content = content))
+        }
+    }
+
+    private fun readNimKey(): String {
+        return try {
+            val file = File(filesDir, "nim.key")
+            if (file.exists()) {
+                file.readText().trim()
+            } else {
+                ""
+            }
+        } catch (e: Exception) {
+            Log.e("AuraRouter", "Failed to read NIM key", e)
+            ""
+        }
+    }
+
     private fun initSpeechRecognizer() {
         speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
         speechRecognizer?.setRecognitionListener(object : RecognitionListener {
@@ -230,20 +285,20 @@ class MainActivity : ComponentActivity() {
                 isListening = true
                 Log.d("AuraMic", "Ready for speech")
             }
-            
+
             override fun onBeginningOfSpeech() {
                 Log.d("AuraMic", "Speech started")
             }
-            
+
             override fun onRmsChanged(rmsdB: Float) {}
-            
+
             override fun onBufferReceived(buffer: ByteArray) {}
-            
+
             override fun onEndOfSpeech() {
                 isListening = false
                 Log.d("AuraMic", "Speech ended")
             }
-            
+
             override fun onError(error: Int) {
                 isListening = false
                 val errorMsg = when (error) {
@@ -260,24 +315,23 @@ class MainActivity : ComponentActivity() {
                 }
                 Log.e("AuraMic", "Speech error: $errorMsg")
             }
-            
+
             override fun onResults(results: Bundle) {
                 val matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 if (matches != null && matches.isNotEmpty()) {
                     val recognizedText = matches[0]
                     Log.d("AuraMic", "Recognized: $recognizedText")
-                    // Submit the recognized text as if typed
-                    input = recognizedText
-                    submit()
+                    // Submit the recognized text
+                    doSubmit(recognizedText)
                 }
             }
-            
+
             override fun onPartialResults(partialResults: Bundle) {}
-            
+
             override fun onEvent(eventType: Int, params: Bundle?) {}
         })
     }
-    
+
     private fun startSpeechRecognition() {
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
@@ -291,24 +345,10 @@ class MainActivity : ComponentActivity() {
             Log.e("AuraMic", "Failed to start listening", e)
         }
     }
-    
+
     override fun onDestroy() {
         speechRecognizer?.destroy()
         super.onDestroy()
-    }
-
-    private fun readNimKey(): String {
-        return try {
-            val file = File(filesDir, "nim.key")
-            if (file.exists()) {
-                file.readText().trim()
-            } else {
-                ""
-            }
-        } catch (e: Exception) {
-            Log.e("AuraRouter", "Failed to read NIM key", e)
-            ""
-        }
     }
 }
 
