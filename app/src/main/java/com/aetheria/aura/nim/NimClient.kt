@@ -233,8 +233,6 @@ class NimClient(
         }
     }
 
-    private val gson = Gson()
-
     // Data classes
     data class NimChatRequest(
         val model: String,

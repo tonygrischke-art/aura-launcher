@@ -14,6 +14,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.aetheria.aura.avatar.AuraMood
 import com.aetheria.aura.avatar.AuraHomeScreen
+import com.aetheria.aura.nim.NimChatMessage
 import com.aetheria.aura.nim.NimClient
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -193,7 +194,7 @@ class MainActivity : ComponentActivity() {
                                             runOnUiThread { addMessageInternal(ChatMessage.Role.AURA, "") }
 
                                             // Convert local messages to NimClient messages
-                                            val nimMessages = messagesState.value.map { com.aetheria.aura.nim.NimChatMessage(it.role.name.lowercase(), it.content) }.toList()
+                                            val nimMessages = messagesState.value.map { NimChatMessage(it.role.name.lowercase(), it.content) }.toList()
 
                                             // Determine tier: VISION for image-related, THINKING for complex, INSTANT for quick
                                             val tier = when {
