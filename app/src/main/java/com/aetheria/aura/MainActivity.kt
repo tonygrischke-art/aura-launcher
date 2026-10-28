@@ -14,6 +14,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.aetheria.aura.avatar.AuraMood
 import com.aetheria.aura.avatar.AuraHomeScreen
+import com.aetheria.aura.nim.NimClient
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,6 +33,7 @@ import com.aetheria.aura.router.AppIndexManager
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.rememberCoroutineScope
 import com.aetheria.aura.actions.AuraAction
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -49,6 +51,7 @@ data class ChatMessage(
 class MainActivity : ComponentActivity() {
     private var speechRecognizer: SpeechRecognizer? = null
     private var isListening = false
+    private lateinit var nimClient: NimClient
 
     private val requestPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) {
@@ -63,7 +66,10 @@ class MainActivity : ComponentActivity() {
         
         // Initialize SpeechRecognizer
         initSpeechRecognizer()
-        
+
+        // Initialize NimClient
+        nimClient = NimClient(this) { readNimKey() }
+
         setContent {
             val pm = packageManager
             val appIndex = AppIndexManager.get() ?: AppIndex(this)
@@ -122,19 +128,59 @@ class MainActivity : ComponentActivity() {
                                 }
                                 is AuraActionRoute.AskHermes -> {
                                     Log.d("AuraRouter", "Routed ASK_HERMES input='${route.input}' matchTimeMs=${System.currentTimeMillis() - startMs}")
-                                    val result = HermesClient.send(route.input)
-                                    phase = AuraMood.ACTING
-                                    val execResult = ActionExecutor.execute(result, this@MainActivity, pm, appIndex)
-                                    // Display Hermes response in chat
-                                    when (result) {
-                                        is AuraAction.AskHermes -> addMessage(ChatMessage.Role.AURA, result.input)
-                                        is AuraAction.OpenApp -> addMessage(ChatMessage.Role.SYSTEM, "Opening ${result.target}...")
-                                        is AuraAction.CallContact -> addMessage(ChatMessage.Role.SYSTEM, "Calling ${result.name}...")
-                                        is AuraAction.SendText -> addMessage(ChatMessage.Role.SYSTEM, "Sending message to ${result.name}...")
-                                        is AuraAction.WebSearch -> addMessage(ChatMessage.Role.SYSTEM, "Searching for ${result.query}...")
-                                        else -> addMessage(ChatMessage.Role.AURA, "Done")
-                                    }
-                                    delay(900)
+                                    val startTime = System.currentTimeMillis()
+                                    var firstToken = false
+                                    var tokenCount = 0
+                                    val messageId = System.currentTimeMillis()
+                                    
+                                    // Add placeholder message for streaming
+                                    val placeholderMsg = ChatMessage(id = messageId, role = ChatMessage.Role.AURA, content = "")
+                                    messages.value.add(placeholderMsg)
+                                    
+                                    // Convert local messages to NimClient messages
+                                    val nimMessages = messages.value.map { com.aetheria.aura.nim.NimChatMessage(it.role.name.lowercase(), it.content) }.toList()
+                                    
+                                    nimClient.streamChat(
+                                        messages = nimMessages,
+                                        onToken = { token ->
+                                            if (!firstToken) {
+                                                val ttfb = System.currentTimeMillis() - startTime
+                                                Log.d("AuraRouter", "TTFB: ${ttfb}ms")
+                                                firstToken = true
+                                            }
+                                            tokenCount++
+                                            // Update the streaming message
+                                            val idx = messages.value.indexOfFirst { it.id == messageId }
+                                            if (idx >= 0) {
+                                                val current = messages.value[idx]
+                                                messages.value[idx] = current.copy(content = current.content + token)
+                                            }
+                                        },
+                                        onComplete = { success ->
+                                            val totalTime = System.currentTimeMillis() - startTime
+                                            val finalIdx = messages.value.indexOfFirst { it.id == messageId }
+                                            if (finalIdx >= 0) {
+                                                val current = messages.value[finalIdx]
+                                                if (current.content.isEmpty()) {
+                                                    messages.value[finalIdx] = current.copy(content = "(no response)")
+                                                }
+                                            }
+                                            Log.d("AuraRouter", "NimClient stream complete: success=$success tokens=$tokenCount totalTime=${totalTime}ms")
+                                            if (!success) {
+                                                val errIdx = messages.value.indexOfFirst { it.id == messageId }
+                                                if (errIdx >= 0) {
+                                                    messages.value[errIdx] = messages.value[errIdx].copy(content = "NIM unreachable (stream failed)")
+                                                }
+                                            }
+                                        },
+                                        onError = { error ->
+                                            Log.e("AuraRouter", "NimClient error: $error")
+                                            val errorIdx = messages.value.indexOfFirst { it.id == messageId }
+                                            if (errorIdx >= 0) {
+                                                messages.value[errorIdx] = messages.value[errorIdx].copy(content = "NIM unreachable ($error)")
+                                            }
+                                        }
+                                    )
                                 }
                             }
                         } catch (e: Exception) {
@@ -246,6 +292,20 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         speechRecognizer?.destroy()
         super.onDestroy()
+    }
+
+    private fun readNimKey(): String {
+        return try {
+            val file = File(filesDir, "nim.key")
+            if (file.exists()) {
+                file.readText().trim()
+            } else {
+                ""
+            }
+        } catch (e: Exception) {
+            Log.e("AuraRouter", "Failed to read NIM key", e)
+            ""
+        }
     }
 }
 

@@ -87,6 +87,11 @@ dependencies {
     // Material Components for View-based themes
     implementation("com.google.android.material:material:1.12.0")
 
+    // OkHttp for NIM API
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okhttp3:okhttp-sse:4.12.0")
+    implementation("com.google.code.gson:gson:2.10.1")
+
     // Media3 ExoPlayer for video orb
     implementation("androidx.media3:media3-exoplayer:1.5.1")
 
