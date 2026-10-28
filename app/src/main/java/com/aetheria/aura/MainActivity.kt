@@ -176,6 +176,11 @@ class MainActivity : ComponentActivity() {
                         val result = ActionExecutor.execute(action, context, pkgMgr, appIdx)
                         Log.d("AuraRouter", "Routed WEB_SEARCH query='${route.query}' action=$result matchTimeMs=${System.currentTimeMillis() - startMs}")
                     }
+                    is AuraActionRoute.NavigateWeb -> {
+                        val action = AuraAction.NavigateWeb(route.url)
+                        val result = ActionExecutor.execute(action, context, pkgMgr, appIdx)
+                        Log.d("AuraRouter", "Routed NAVIGATE_WEB url='${route.url}' action=$result matchTimeMs=${System.currentTimeMillis() - startMs}")
+                    }
                     is AuraActionRoute.AskHermes -> {
                         Log.d("AuraRouter", "Routed ASK_HERMES input='${route.input}' matchTimeMs=${System.currentTimeMillis() - startMs}")
                         val startTime = System.currentTimeMillis()

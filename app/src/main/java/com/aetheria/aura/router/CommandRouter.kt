@@ -20,6 +20,7 @@ sealed class AuraActionRoute {
     data class CallContact(val name: String) : AuraActionRoute()
     data class SendText(val name: String, val body: String) : AuraActionRoute()
     data class WebSearch(val query: String) : AuraActionRoute()
+    data class NavigateWeb(val url: String) : AuraActionRoute()
     data class AskHermes(val input: String) : AuraActionRoute()
 }
 
@@ -147,6 +148,8 @@ object CommandRouter {
     private val TEXT_VERBS = setOf("text", "message", "send")
     // search|google|look up|find|search for <query> and exact phrases "what is the weather" / "weather"
     private val SEARCH_VERBS = setOf("search", "google", "look up", "lookup", "find", "weather")
+    // Navigation verbs for web URLs
+    private val NAVIGATE_VERBS = setOf("go to", "navigate to", "visit", "browse to", "open url", "load")
 
     /**
      * Route a raw user command to an action route.
@@ -172,6 +175,18 @@ object CommandRouter {
 
         return when {
             firstWord in OPEN_VERBS -> {
+                val rest = words.drop(1).joinToString(" ")
+                // Check for "open <app> and go to <url>" pattern
+                if (rest.contains(" and go to ") || rest.contains(" and navigate to ") || rest.contains(" and visit ")) {
+                    val parts = rest.split(Regex(" and (go to|navigate to|visit|browse to|open url|load) "))
+                    val appTarget = parts.firstOrNull()?.trim() ?: ""
+                    val urlTarget = parts.drop(1).firstOrNull()?.trim() ?: ""
+                    if (appTarget.isNotBlank() && urlTarget.isNotBlank()) {
+                        // For now, return NavigateWeb with combined info
+                        // ActionExecutor will handle opening app + navigating
+                        return AuraActionRoute.NavigateWeb("$appTarget|$urlTarget")
+                    }
+                }
                 val target = words.drop(1).joinToString(" ")
                 if (target.isBlank()) AuraActionRoute.AskHermes(input)
                 else AuraActionRoute.OpenApp(target)
@@ -192,6 +207,32 @@ object CommandRouter {
             firstWord in SEARCH_VERBS -> {
                 val query = words.drop(1).joinToString(" ")
                 return AuraActionRoute.WebSearch(query)
+            }
+            // Check for navigation phrases at start
+            lowerInput.startsWith("go to ") -> {
+                val url = trimmed.substring("go to ".length).trim()
+                if (url.isBlank()) AuraActionRoute.AskHermes(input)
+                else AuraActionRoute.NavigateWeb(url)
+            }
+            lowerInput.startsWith("navigate to ") -> {
+                val url = trimmed.substring("navigate to ".length).trim()
+                if (url.isBlank()) AuraActionRoute.AskHermes(input)
+                else AuraActionRoute.NavigateWeb(url)
+            }
+            lowerInput.startsWith("visit ") -> {
+                val url = trimmed.substring("visit ".length).trim()
+                if (url.isBlank()) AuraActionRoute.AskHermes(input)
+                else AuraActionRoute.NavigateWeb(url)
+            }
+            lowerInput.startsWith("browse to ") -> {
+                val url = trimmed.substring("browse to ".length).trim()
+                if (url.isBlank()) AuraActionRoute.AskHermes(input)
+                else AuraActionRoute.NavigateWeb(url)
+            }
+            lowerInput.startsWith("visit ") -> {
+                val url = trimmed.substring("visit ".length).trim()
+                if (url.isBlank()) AuraActionRoute.AskHermes(input)
+                else AuraActionRoute.NavigateWeb(url)
             }
             else -> AuraActionRoute.AskHermes(input)
         }

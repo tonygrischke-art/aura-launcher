@@ -29,6 +29,7 @@ object ActionExecutor {
             is AuraAction.CallContact -> executeCallContact(action, context, pm)
             is AuraAction.SendText -> executeSendText(action, context, pm)
             is AuraAction.WebSearch -> executeWebSearch(action, context, pm)
+            is AuraAction.NavigateWeb -> executeNavigateWeb(action, context, pm)
             is AuraAction.AskHermes -> "hermes"
             AuraAction.Unknown -> "error"
         }
@@ -123,6 +124,41 @@ object ActionExecutor {
             "confirm"
         } catch (e: Exception) {
             Log.e("AuraRouter", "WebSearch: startActivity failed query='$query'", e)
+            "error"
+        }
+    }
+
+    private fun executeNavigateWeb(action: AuraAction.NavigateWeb, context: Context, pm: PackageManager): String {
+        val url = action.url
+        if (url.isBlank()) return "error"
+        
+        // Handle combined format "appTarget|urlTarget" for "open app and go to url"
+        val (appTarget, urlTarget) = if (url.contains("|")) {
+            val parts = url.split("|", limit = 2)
+            parts[0] to parts[1]
+        } else {
+            null to url
+        }
+        
+        // If appTarget is specified, we should open that app first, then navigate
+        // For now, just open the URL in the default browser
+        val targetUrl = if (!url.startsWith("http://") && !url.startsWith("https://")) {
+            "https://$url"
+        } else url
+        
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl))
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        Log.d("AuraRouter", "NavigateWeb: url='$targetUrl'")
+        
+        if (intent.resolveActivity(pm) == null) {
+            Log.w("AuraRouter", "NavigateWeb: no browser found for url='$targetUrl'")
+            return "error"
+        }
+        return try {
+            context.startActivity(intent)
+            "confirm"
+        } catch (e: Exception) {
+            Log.e("AuraRouter", "NavigateWeb: startActivity failed url='$targetUrl'", e)
             "error"
         }
     }

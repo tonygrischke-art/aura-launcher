@@ -20,6 +20,9 @@ sealed class AuraAction {
     /** Action to perform a web search */
     data class WebSearch(val query: String) : AuraAction()
 
+    /** Action to navigate to a web URL (open browser + navigate) */
+    data class NavigateWeb(val url: String) : AuraAction()
+
     /** Action to ask Hermes (catch-all for non-phone actions) */
     data class AskHermes(val input: String) : AuraAction()
 
@@ -54,6 +57,10 @@ sealed class AuraAction {
                     "web_search" -> {
                         val query = args?.getString("query") ?: ""
                         AuraAction.WebSearch(query)
+                    }
+                    "navigate_web" -> {
+                        val url = args?.getString("url") ?: ""
+                        AuraAction.NavigateWeb(url)
                     }
                     "ask_hermes" -> {
                         val input = args?.getString("input") ?: ""
