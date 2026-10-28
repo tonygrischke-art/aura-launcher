@@ -129,6 +129,9 @@ class NimClient(
             .addHeader("Accept", "text/event-stream")
             .build()
 
+        // Debug: log request headers
+        Log.d(TAG, "Request headers: ${request.headers}")
+
         val streamStartTime = System.currentTimeMillis()
         val eventListener = NimEventListener(
             model = model,
