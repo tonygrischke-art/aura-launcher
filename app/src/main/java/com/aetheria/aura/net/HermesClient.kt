@@ -4,6 +4,7 @@ import com.aetheria.aura.actions.AuraAction
 import com.aetheria.aura.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import android.util.Log
 import java.net.HttpURLConnection
 import java.io.OutputStreamWriter
 import java.io.BufferedReader
@@ -30,7 +31,7 @@ object HermesClient {
                 connection.setRequestProperty("Content-Type", "application/json; utf-8")
                 connection.setRequestProperty("Accept", "application/json")
                 connection.connectTimeout = 10000 // 10s connect timeout
-                connection.readTimeout = 10000   // 10s read timeout
+                connection.readTimeout = 60000   // 60s read timeout (Hermes may take time)
                 connection.doOutput = true
 
                 // POST {"command": text}
@@ -54,9 +55,11 @@ object HermesClient {
                 } else {
                     // Non-200 response sets error state
                     result = AuraAction.Unknown
+                    Log.w("AuraRouter", "Hermes HTTP $responseCode for cmd='$command'")
                 }
             } catch (e: Exception) {
-                // Any exception sets the orb to error (represented as Unknown for now)
+                Log.e("AuraRouter", "Hermes request failed for cmd='$command' host=$host", e)
+                // Return Unknown but caller will handle the error message
                 result = AuraAction.Unknown
             } finally {
                 connection?.disconnect()
