@@ -233,8 +233,6 @@ class NimClient(
         }
     }
 
-    private val gson = Gson()
-
     // Use top-level data classes from NimModels.kt
-    // NimChatMessage, NimChatRequest, NimChatResponse, NimChoice, NimDelta
+// NimChatMessage, NimChatRequest, NimChatResponse, NimChoice, NimDelta
 }
