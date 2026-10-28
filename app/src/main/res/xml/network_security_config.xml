@@ -4,4 +4,7 @@
         <domain includeSubdomains="false">127.0.0.1</domain>
         <domain includeSubdomains="false">localhost</domain>
     </domain-config>
+    <domain-config>
+        <domain includeSubdomains="true">integrate.api.nvidia.com</domain>
+    </domain-config>
 </network-security-config>
