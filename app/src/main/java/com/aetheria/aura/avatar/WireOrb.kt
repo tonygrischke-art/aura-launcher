@@ -18,7 +18,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -230,6 +229,81 @@ private class OrbState(count: Int) {
     }
 }
 
+private val MESH: WireMesh by lazy { buildIcosphere(2) }
+
+private val PULSE_SECONDS = 0.8f
+private val CYAN = Color(0xFF3DE8F5)
+private val VIOLET = Color(0xFF8A3DFF)
+private val VIOLET_HOT = Color(0xFFD08CFF)
+
+private class WireMesh(val verts: FloatArray, val edges: IntArray)
+
+private fun buildIcosphere(subdivisions: Int): WireMesh {
+    val t = (1f + sqrt(5f)) / 2f
+    val v = ArrayList<FloatArray>()
+    fun add(x: Float, y: Float, z: Float): Int {
+        val l = sqrt(x * x + y * y + z * z)
+        v.add(floatArrayOf(x / l, y / l, z / l))
+        return v.size - 1
+    }
+    add(-1f, t, 0f); add(1f, t, 0f); add(-1f, -t, 0f); add(1f, -t, 0f)
+    add(0f, -1f, t); add(0f, 1f, t); add(0f, -1f, -t); add(0f, 1f, -t)
+    add(t, 0f, -1f); add(t, 0f, 1f); add(-t, 0f, -1f); add(-t, 0f, 1f)
+    var faces: List<IntArray> = listOf(
+        intArrayOf(0, 11, 5), intArrayOf(0, 5, 1), intArrayOf(0, 1, 7), intArrayOf(0, 7, 10), intArrayOf(0, 10, 11),
+        intArrayOf(1, 5, 9), intArrayOf(5, 11, 4), intArrayOf(11, 10, 2), intArrayOf(10, 7, 6), intArrayOf(7, 1, 8),
+        intArrayOf(3, 9, 4), intArrayOf(3, 4, 2), intArrayOf(3, 2, 6), intArrayOf(3, 6, 8), intArrayOf(3, 8, 9),
+        intArrayOf(4, 9, 5), intArrayOf(2, 4, 11), intArrayOf(6, 2, 10), intArrayOf(8, 6, 7), intArrayOf(9, 8, 1)
+    )
+    repeat(subdivisions) {
+        val cache = HashMap<Long, Int>()
+        fun mid(a: Int, b: Int): Int {
+            val lo = minOf(a, b)
+            val hi = maxOf(a, b)
+            val key = lo.toLong() * 100000L + hi.toLong()
+            val hit = cache[key]
+            if (hit != null) return hit
+            val idx = add(v[a][0] + v[b][0], v[a][1] + v[b][1], v[a][2] + v[b][2])
+            cache[key] = idx
+            return idx
+        }
+        val next = ArrayList<IntArray>()
+        for (f in faces) {
+            val a = mid(f[0], f[1])
+            val b = mid(f[1], f[2])
+            val c = mid(f[2], f[0])
+            next.add(intArrayOf(f[0], a, c))
+            next.add(intArrayOf(f[1], b, a))
+            next.add(intArrayOf(f[2], c, b))
+            next.add(intArrayOf(a, b, c))
+        }
+        faces = next
+    }
+    val edgeSet = LinkedHashSet<Long>()
+    for (f in faces) {
+        for (i in 0..2) {
+            val a = f[i]
+            val b = f[(i + 1) % 3]
+            edgeSet.add(minOf(a, b).toLong() * 100000L + maxOf(a, b).toLong())
+        }
+    }
+    val edges = IntArray(edgeSet.size * 2)
+    var e = 0
+    for (k in edgeSet) {
+        edges[e++] = (k / 100000L).toInt()
+        edges[e++] = (k % 100000L).toInt()
+    }
+    val verts = FloatArray(v.size * 3)
+    for (j in v.indices) {
+        verts[j * 3] = v[j][0]
+        verts[j * 3 + 1] = v[j][1]
+        verts[j * 3 + 2] = v[j][2]
+    }
+    return WireMesh(verts, edges)
+}
+
+private val MESH: WireMesh by lazy { buildIcosphere(2) }
+
 @Composable
 fun WireOrb(
     mood: AuraMood,
@@ -240,6 +314,7 @@ fun WireOrb(
     val s = remember { OrbState(MESH.verts.size / 3) }
     val currentMood by rememberUpdatedState(mood)
     val currentOnTap by rememberUpdatedState(onTap)
+    val currentOnLongPress by rememberUpdatedState(onLongPress)
     val haptic = LocalHapticFeedback.current
     var tick by remember { mutableLongStateOf(0L) }
 
@@ -257,36 +332,36 @@ fun WireOrb(
                 tick = now
             }
         }
-    val currentOnLongPress by rememberUpdatedState(onLongPress)
+    }
 
-        Canvas(
-            modifier = modifier
-                .pointerInput(Unit) {
-                    detectTapGestures(
-                        onTap = { pos ->
-                            val r = minOf(size.width, size.height) * 0.35f
-                            var dx = (pos.x - size.width / 2f) / r
-                            var dy = (pos.y - size.height / 2f) / r
-                            val d2 = dx * dx + dy * dy
-                            val dz: Float
-                            if (d2 > 1f) {
-                                val k = 1f / sqrt(d2)
-                                dx *= k
-                                dy *= k
-                                dz = 0f
-                            } else {
-                                dz = sqrt(1f - d2)
-                            }
-                            s.startPulse(dx, -dy, dz)
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            currentOnTap()
-                        },
-                        onLongPress = { pos ->
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            currentOnLongPress?.invoke()
+    Canvas(
+        modifier = modifier
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onTap = { pos ->
+                        val r = minOf(size.width, size.height) * 0.35f
+                        var dx = (pos.x - size.width / 2f) / r
+                        var dy = (pos.y - size.height / 2f) / r
+                        val d2 = dx * dx + dy * dy
+                        val dz: Float
+                        if (d2 > 1f) {
+                            val k = 1f / sqrt(d2)
+                            dx *= k
+                            dy *= k
+                            dz = 0f
+                        } else {
+                            dz = sqrt(1f - d2)
                         }
-                    )
-                }
+                        s.startPulse(dx, -dy, dz)
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        currentOnTap()
+                    },
+                    onLongPress = { pos ->
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        currentOnLongPress?.invoke()
+                    }
+                )
+            }
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDragStart = { s.dragging = true },

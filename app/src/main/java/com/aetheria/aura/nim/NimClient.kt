@@ -61,7 +61,7 @@ class NimClient(
      * @param onError Callback for errors
      */
     fun streamChat(
-        messages: List<ChatMessage>,
+        messages: List<NimChatMessage>,
         tier: Tier,
         onToken: (String) -> Unit,
         onComplete: (Boolean) -> Unit,
@@ -79,7 +79,7 @@ class NimClient(
 
     private fun attemptModels(
         remainingModels: MutableList<String>,
-        messages: List<ChatMessage>,
+        messages: List<NimChatMessage>,
         onToken: (String) -> Unit,
         onComplete: (Boolean) -> Unit,
         onError: (String) -> Unit,
@@ -175,7 +175,7 @@ class NimClient(
         }.start()
     }
 
-    private fun buildRequest(messages: List<ChatMessage>, model: String): String {
+    private fun buildRequest(messages: List<NimChatMessage>, model: String): String {
         val json = JsonObject()
         json.addProperty("model", model)
         json.addProperty("stream", true)
@@ -194,7 +194,7 @@ class NimClient(
         return gson.toJson(json)
     }
 
-    private fun buildRequestBody(model: String, messages: List<ChatMessage>): RequestBody {
+    private fun buildRequestBody(model: String, messages: List<NimChatMessage>): okhttp3.RequestBody {
         val json = buildRequest(model, messages)
         return json.toRequestBody(MEDIA_TYPE)
     }
@@ -202,7 +202,7 @@ class NimClient(
     private fun onModelFailure(
         failedModel: String,
         remainingModels: MutableList<String>,
-        messages: List<ChatMessage],
+        messages: List<NimChatMessage>,
         onToken: (String) -> Unit,
         onComplete: (Boolean) -> Unit,
         onError: (String) -> Unit,
@@ -234,7 +234,7 @@ class NimClient(
         INSTANT, THINKING, CONTEMPLATING, VISION
     }
 
-    data class ChatMessage(
+    data class NimChatMessage(
         val role: String,
         val content: String
     )
