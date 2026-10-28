@@ -164,18 +164,26 @@ class NimClient(
                 if (choices != null && choices.size() > 0) {
                     val delta = choices[0].asJsonObject.get("delta")
                     if (delta != null && delta.isJsonObject) {
-                        val content = delta.asJsonObject.get("content")
-                        if (content != null && content.isJsonPrimitive) {
-                            val token = content.asJsonPrimitive.getAsString()
-                            if (token.isNotEmpty()) {
-                                if (!ttfbLogged) {
-                                    val ttfb = System.currentTimeMillis() - streamStartTime
-                                    Log.d(TAG, "TTFB for $model: ${ttfb}ms")
-                                    ttfbLogged = true
-                                }
-                                tokenCount++
-                                onToken(token)
+                        val deltaObj = delta.asJsonObject
+                        // NIM returns reasoning_content for thinking models, content for regular
+                        var token = ""
+                        val reasoningContent = deltaObj.get("reasoning_content")
+                        if (reasoningContent != null && reasoningContent.isJsonPrimitive) {
+                            token = reasoningContent.asJsonPrimitive.getAsString()
+                        } else {
+                            val content = deltaObj.get("content")
+                            if (content != null && content.isJsonPrimitive) {
+                                token = content.asJsonPrimitive.getAsString()
                             }
+                        }
+                        if (token.isNotEmpty()) {
+                            if (!ttfbLogged) {
+                                val ttfb = System.currentTimeMillis() - streamStartTime
+                                Log.d(TAG, "TTFB for $model: ${ttfb}ms")
+                                ttfbLogged = true
+                            }
+                            tokenCount++
+                            onToken(token)
                         }
                     }
                 }
