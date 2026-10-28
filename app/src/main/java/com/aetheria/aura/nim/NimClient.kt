@@ -115,10 +115,10 @@ class NimClient(
         val startTime = System.currentTimeMillis()
 
         val requestBody = buildRequestBody(model, messages)
+        val url = "$ENDPOINT?api_key=${apiKeyProvider()}"  // Try query param for auth
         val request = Request.Builder()
-            .url(ENDPOINT)
+            .url(url)
             .post(requestBody)
-            .addHeader("Authorization", "Bearer ${apiKeyProvider()}")
             .addHeader("Content-Type", "application/json")
             .addHeader("Accept", "text/event-stream")
             .build()
