@@ -125,8 +125,8 @@ class ModelHealthStore(private val context: Context) {
 
     private fun loadFromDisk() {
         try {
-            val prefs = context.getSharedPreferences("model_health", Context.MODE_PRIVATE)
-            val json = prefs.getString("model_health_json", null)
+            val prefs = context.getSharedPreferences(prefsName, Context.MODE_PRIVATE)
+            val json = prefs.getString(healthJsonKey, null)
             if (json != null) {
                 val map = gson.fromJson(json, modelListType)
                 map?.forEach { (k, v) -> healthMap[k] = v }
@@ -152,9 +152,9 @@ class ModelHealthStore(private val context: Context) {
     private fun persistAsync() {
         val json = gson.toJson(healthMap)
         Thread {
-            context.getSharedPreferences("model_health", Context.MODE_PRIVATE)
+            context.getSharedPreferences(prefsName, Context.MODE_PRIVATE)
                 .edit()
-                .putString("model_health_json", json)
+                .putString(healthJsonKey, json)
                 .apply()
         }.start()
     }
