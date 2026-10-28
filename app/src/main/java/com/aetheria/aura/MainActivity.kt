@@ -89,11 +89,13 @@ class MainActivity : ComponentActivity() {
                     val cmd = input.trim(); if (cmd.isEmpty()) return
                     input = ""; status = null
                     addMessage(ChatMessage.Role.USER, cmd)
+                    Log.d("AuraRouter", "submit cmd='$cmd'")
                     scope.launch {
                         phase = AuraMood.THINKING
                         try {
                             // Route locally first
                             val route = CommandRouter.route(cmd)
+                            Log.d("AuraRouter", "route=$route")
                             val startMs = System.currentTimeMillis()
                             // Exhaustive when on sealed class AuraActionRoute
                             when (route) {
@@ -136,6 +138,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         } catch (e: Exception) {
+                            Log.e("AuraRouter", "submit failed cmd='$cmd'", e)
                             status = "Error: ${e.message}"
                             addMessage(ChatMessage.Role.SYSTEM, "Error: ${e.message}")
                         } finally {

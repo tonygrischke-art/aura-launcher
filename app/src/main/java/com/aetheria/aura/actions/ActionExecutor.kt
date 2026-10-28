@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.database.Cursor
 import android.net.Uri
 import android.provider.ContactsContract
+import android.util.Log
 import com.aetheria.aura.router.AppIndex
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -20,93 +21,112 @@ import kotlinx.coroutines.withContext
  */
 object ActionExecutor {
 
-    /**
-     * Executes the given AuraAction using the PackageManager and AppIndex to find and launch matching apps.
-     * @param action The AuraAction to execute
-     * @param context The Context to start activities
-     * @param pm The PackageManager instance
-     * @param appIndex The AppIndex for fuzzy label matching
-     * @return "confirm" if action was executed, "error" if no match or Unknown action
-     */
+    /** Executes the given AuraAction using the PackageManager and AppIndex to find and launch matching apps. */
     fun execute(action: AuraAction, context: Context, pm: PackageManager, appIndex: AppIndex? = null): String {
+        Log.d("AuraRouter", "ActionExecutor.execute action=${action::class.simpleName} $action")
         return when (action) {
-            is AuraAction.OpenApp -> {
-                val target = action.target
-                if (target.isBlank()) "error"
-                else {
-                    val pkg = appIndex?.findBestMatch(target)
-                    if (pkg != null) {
-                        val intent = pm.getLaunchIntentForPackage(pkg)
-                        if (intent != null) {
-                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            context.startActivity(intent)
-                            "confirm"
-                        } else "error"
-                    } else "error"
-                }
-            }
-            is AuraAction.CallContact -> {
-                val name = action.name
-                if (name.isBlank()) "error"
-                else {
-                    val phoneNumber = findPhoneNumberByName(context, name)
-                    if (phoneNumber != null) {
-                        val intent = Intent(Intent.ACTION_DIAL)
-                        intent.data = Uri.parse("tel:$phoneNumber")
-                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        context.startActivity(intent)
-                        "confirm"
-                    } else {
-                        // Fallback: open dialer without number
-                        val intent = Intent(Intent.ACTION_DIAL)
-                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        context.startActivity(intent)
-                        "confirm"
-                    }
-                }
-            }
-            is AuraAction.SendText -> {
-                val name = action.name
-                val body = action.body
-                if (name.isBlank()) "error"
-                else {
-                    val phoneNumber = findPhoneNumberByName(context, name)
-                    val intent = Intent(Intent.ACTION_SENDTO)
-                    if (phoneNumber != null) {
-                        intent.data = Uri.parse("smsto:$phoneNumber")
-                    } else {
-                        intent.data = Uri.parse("smsto:")
-                    }
-                    intent.putExtra("sms_body", body)
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    if (intent.resolveActivity(pm) != null) {
-                        context.startActivity(intent)
-                        "confirm"
-                    } else "error"
-                }
-            }
-            is AuraAction.WebSearch -> {
-                val query = action.query
-                if (query.isBlank()) "error"
-                else {
-                    val intent = Intent(Intent.ACTION_WEB_SEARCH)
-                    intent.putExtra(SearchManager.QUERY, query)
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    if (intent.resolveActivity(pm) != null) {
-                        context.startActivity(intent)
-                        "confirm"
-                    } else "error"
-                }
-            }
-            is AuraAction.AskHermes -> "hermes" // Signal to call Hermes bridge
+            is AuraAction.OpenApp -> executeOpenApp(action, context, pm, appIndex)
+            is AuraAction.CallContact -> executeCallContact(action, context, pm)
+            is AuraAction.SendText -> executeSendText(action, context, pm)
+            is AuraAction.WebSearch -> executeWebSearch(action, context, pm)
+            is AuraAction.AskHermes -> "hermes"
             AuraAction.Unknown -> "error"
         }
     }
 
-    /**
-     * Finds a phone number for a contact by name (fuzzy match).
-     * Returns the first phone number found, or null if no match.
-     */
+    private fun executeOpenApp(action: AuraAction.OpenApp, context: Context, pm: PackageManager, appIndex: AppIndex?): String {
+        val target = action.target
+        if (target.isBlank()) return "error"
+        val pkg = appIndex?.findBestMatch(target)
+        if (pkg == null) {
+            Log.w("AuraRouter", "OpenApp: no package match for target='$target'")
+            return "error"
+        }
+        val intent = pm.getLaunchIntentForPackage(pkg)
+        if (intent == null) {
+            Log.w("AuraRouter", "OpenApp: no launch intent for pkg='$pkg'")
+            return "error"
+        }
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        Log.d("AuraRouter", "OpenApp: starting intent action=${intent.action} pkg=$pkg target='$target'")
+        try {
+            context.startActivity(intent)
+            "confirm"
+        } catch (e: Exception) {
+            Log.e("AuraRouter", "OpenApp: startActivity failed for pkg='$pkg'", e)
+            "error"
+        }
+    }
+
+    private fun executeCallContact(action: AuraAction.CallContact, context: Context, pm: PackageManager): String {
+        val name = action.name
+        if (name.isBlank()) return "error"
+        val phoneNumber = findPhoneNumberByName(context, name)
+        val intent = Intent(Intent.ACTION_DIAL)
+        if (phoneNumber != null) {
+            intent.data = Uri.parse("tel:$phoneNumber")
+            Log.d("AuraRouter", "CallContact: dialing name='$name' phoneNumber='$phoneNumber'")
+        } else {
+            Log.w("AuraRouter", "CallContact: no phone number for name='$name', opening dialer without number")
+        }
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        try {
+            context.startActivity(intent)
+            "confirm"
+        } catch (e: Exception) {
+            Log.e("AuraRouter", "CallContact: startActivity failed name='$name'", e)
+            "error"
+        }
+    }
+
+    private fun executeSendText(action: AuraAction.SendText, context: Context, pm: PackageManager): String {
+        val name = action.name
+        val body = action.body
+        if (name.isBlank()) return "error"
+        val phoneNumber = findPhoneNumberByName(context, name)
+        val intent = Intent(Intent.ACTION_SENDTO)
+        if (phoneNumber != null) {
+            intent.data = Uri.parse("smsto:$phoneNumber")
+            Log.d("AuraRouter", "SendText: to name='$name' phoneNumber='$phoneNumber' body='$body'")
+        } else {
+            intent.data = Uri.parse("smsto:")
+            Log.w("AuraRouter", "SendText: no phone number for name='$name', opening SMS composer without recipient")
+        }
+        intent.putExtra("sms_body", body)
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (intent.resolveActivity(pm) == null) {
+            Log.w("AuraRouter", "SendText: no SMS app found")
+            return "error"
+        }
+        try {
+            context.startActivity(intent)
+            "confirm"
+        } catch (e: Exception) {
+            Log.e("AuraRouter", "SendText: startActivity failed name='$name'", e)
+            "error"
+        }
+    }
+
+    private fun executeWebSearch(action: AuraAction.WebSearch, context: Context, pm: PackageManager): String {
+        val query = action.query
+        if (query.isBlank()) return "error"
+        val intent = Intent(Intent.ACTION_WEB_SEARCH)
+        intent.putExtra(SearchManager.QUERY, query)
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        Log.d("AuraRouter", "WebSearch: query='$query'")
+        if (intent.resolveActivity(pm) == null) {
+            Log.w("AuraRouter", "WebSearch: no browser/search app found")
+            return "error"
+        }
+        try {
+            context.startActivity(intent)
+            "confirm"
+        } catch (e: Exception) {
+            Log.e("AuraRouter", "WebSearch: startActivity failed query='$query'", e)
+            "error"
+        }
+    }
+
     private fun findPhoneNumberByName(context: Context, name: String): String? {
         val normalizedName = name.lowercase().trim()
         if (normalizedName.isBlank()) return null
@@ -129,6 +149,7 @@ object ActionExecutor {
                 } else null
             } else null
         } catch (e: Exception) {
+            Log.e("AuraRouter", "findPhoneNumberByName failed name='$name'", e)
             null
         } finally {
             cursor?.close()
