@@ -200,8 +200,10 @@ class NimClient(
 
         override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
             val errorMsg = t?.message ?: "Stream failed"
-            Log.e(TAG, "SSE failure for $model: $errorMsg", t)
-            onError(errorMsg)
+            val responseCode = response?.code ?: 0
+            val body = try { response?.body?.string() } catch (e: Exception) { "" }
+            Log.e(TAG, "SSE failure for $model: $errorMsg, httpCode=$responseCode, body=$body", t)
+            onError("$errorMsg (http=$responseCode)")
         }
     }
 }
