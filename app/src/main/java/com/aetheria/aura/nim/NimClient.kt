@@ -178,9 +178,9 @@ class NimClient(
                             }
                         }
                     }
-                } catch (e: Exception) {
-                    Log.w(TAG, "Failed to parse SSE chunk: $e")
                 }
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to parse SSE chunk: $e")
             }
         }
 
