@@ -233,34 +233,8 @@ class NimClient(
         }
     }
 
-    // Data classes
-    data class NimChatRequest(
-        val model: String,
-        val messages: List<NimChatMessage>,
-        val stream: Boolean = true,
-        val max_tokens: Int = 512,
-        val temperature: Float = 0.7f
-    )
+    private val gson = Gson()
 
-    data class NimChatMessage(
-        val role: String,
-        val content: String
-    )
-
-    data class NimChatResponse(
-        val id: String,
-        val choices: List<NimChoice>
-    )
-
-    data class NimChoice(
-        val index: Int,
-        val delta: NimDelta,
-        val finish_reason: String?
-    )
-
-    data class NimDelta(
-        val role: String?,
-        val content: String?,
-        val reasoning_content: String?
-    )
+    // Use top-level data classes from NimModels.kt
+    // NimChatMessage, NimChatRequest, NimChatResponse, NimChoice, NimDelta
 }
