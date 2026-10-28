@@ -162,26 +162,30 @@ class MainActivity : ComponentActivity() {
                 Log.d("AuraRouter", "route=$route")
                 val startMs = System.currentTimeMillis()
                 // Exhaustive when on sealed class AuraActionRoute
+                val activity = this@MainActivity
+                val context = activity
+                val pkgMgr = activity.packageManager
+                val appIdx = AppIndexManager.get() ?: AppIndex(activity)
                 when (route) {
                     is AuraActionRoute.OpenApp -> {
                         val action = AuraAction.OpenApp(route.target)
-                        val result = ActionExecutor.execute(action, this@MainActivity, packageManager, AppIndexManager.get() ?: AppIndex(this))
+                        val result = ActionExecutor.execute(action, context, pkgMgr, appIdx)
                         Log.d("AuraRouter", "Routed OPEN_APP target='${route.target}' action=$result matchTimeMs=${System.currentTimeMillis() - startMs}")
                         if (result == "error") addMessageInternal(ChatMessage.Role.SYSTEM, "Could not find app: ${route.target}")
                     }
                     is AuraActionRoute.CallContact -> {
                         val action = AuraAction.CallContact(route.name)
-                        val result = ActionExecutor.execute(action, this@MainActivity, packageManager, AppIndexManager.get() ?: AppIndex(this))
+                        val result = ActionExecutor.execute(action, context, pkgMgr, appIdx)
                         Log.d("AuraRouter", "Routed CALL_CONTACT name='${route.name}' action=$result matchTimeMs=${System.currentTimeMillis() - startMs}")
                     }
                     is AuraActionRoute.SendText -> {
                         val action = AuraAction.SendText(route.name, route.body)
-                        val result = ActionExecutor.execute(action, this@MainActivity, packageManager, AppIndexManager.get() ?: AppIndex(this))
+                        val result = ActionExecutor.execute(action, context, pkgMgr, appIdx)
                         Log.d("AuraRouter", "Routed SEND_TEXT name='${route.name}' body='${route.body}' action=$result matchTimeMs=${System.currentTimeMillis() - startMs}")
                     }
                     is AuraActionRoute.WebSearch -> {
                         val action = AuraAction.WebSearch(route.query)
-                        val result = ActionExecutor.execute(action, this@MainActivity, packageManager, AppIndexManager.get() ?: AppIndex(this))
+                        val result = ActionExecutor.execute(action, context, pkgMgr, appIdx)
                         Log.d("AuraRouter", "Routed WEB_SEARCH query='${route.query}' action=$result matchTimeMs=${System.currentTimeMillis() - startMs}")
                     }
                     is AuraActionRoute.AskHermes -> {
