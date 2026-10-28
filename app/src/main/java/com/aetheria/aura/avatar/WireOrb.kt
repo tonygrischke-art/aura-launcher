@@ -231,7 +231,12 @@ private class OrbState(count: Int) {
 }
 
 @Composable
-fun WireOrb(mood: AuraMood, onTap: () -> Unit, modifier: Modifier = Modifier) {
+fun WireOrb(
+    mood: AuraMood,
+    onTap: () -> Unit,
+    onLongPress: (() -> Unit)? = null,
+    modifier: Modifier = Modifier
+) {
     val s = remember { OrbState(MESH.verts.size / 3) }
     val currentMood by rememberUpdatedState(mood)
     val currentOnTap by rememberUpdatedState(onTap)
@@ -252,30 +257,36 @@ fun WireOrb(mood: AuraMood, onTap: () -> Unit, modifier: Modifier = Modifier) {
                 tick = now
             }
         }
-    }
+    val currentOnLongPress by rememberUpdatedState(onLongPress)
 
-    Canvas(
-        modifier = modifier
-            .pointerInput(Unit) {
-                detectTapGestures(onTap = { pos ->
-                    val r = minOf(size.width, size.height) * 0.35f
-                    var dx = (pos.x - size.width / 2f) / r
-                    var dy = (pos.y - size.height / 2f) / r
-                    val d2 = dx * dx + dy * dy
-                    val dz: Float
-                    if (d2 > 1f) {
-                        val k = 1f / sqrt(d2)
-                        dx *= k
-                        dy *= k
-                        dz = 0f
-                    } else {
-                        dz = sqrt(1f - d2)
-                    }
-                    s.startPulse(dx, -dy, dz)
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    currentOnTap()
-                })
-            }
+        Canvas(
+            modifier = modifier
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onTap = { pos ->
+                            val r = minOf(size.width, size.height) * 0.35f
+                            var dx = (pos.x - size.width / 2f) / r
+                            var dy = (pos.y - size.height / 2f) / r
+                            val d2 = dx * dx + dy * dy
+                            val dz: Float
+                            if (d2 > 1f) {
+                                val k = 1f / sqrt(d2)
+                                dx *= k
+                                dy *= k
+                                dz = 0f
+                            } else {
+                                dz = sqrt(1f - d2)
+                            }
+                            s.startPulse(dx, -dy, dz)
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            currentOnTap()
+                        },
+                        onLongPress = { pos ->
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            currentOnLongPress?.invoke()
+                        }
+                    )
+                }
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDragStart = { s.dragging = true },

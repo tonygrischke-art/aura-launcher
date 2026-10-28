@@ -1,6 +1,7 @@
 package com.aetheria.aura
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -14,12 +15,19 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.aetheria.aura.avatar.AuraMood
 import com.aetheria.aura.avatar.AuraHomeScreen
+import com.aetheria.aura.nim.DailyHealthCheckWorker
+import com.aetheria.aura.nim.HealthCheckScheduler
+import com.aetheria.aura.nim.ModelHealthService
+import com.aetheria.aura.nim.ModelHealthStore
+import com.aetheria.aura.nim.NimClient
+import com.aetheria.aura.nim.VisionManager
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -32,6 +40,7 @@ import com.aetheria.aura.router.AppIndexManager
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.rememberCoroutineScope
 import com.aetheria.aura.actions.AuraAction
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -49,10 +58,14 @@ data class ChatMessage(
 class MainActivity : ComponentActivity() {
     private var speechRecognizer: SpeechRecognizer? = null
     private var isListening = false
+    private lateinit var nimClient: NimClient
+    private lateinit var modelHealthStore: ModelHealthStore
+    private lateinit var modelHealthService: ModelHealthService
+    private lateinit var visionManager: VisionManager
 
     private val requestPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) {
-            // Permission granted, speech recognizer can be used
+            // Permission granted
         }
     }
 
@@ -60,10 +73,24 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         // Initialize AppIndex with auto-refresh on package changes
         AppIndexManager.init(this)
-        
+
         // Initialize SpeechRecognizer
         initSpeechRecognizer()
-        
+
+        // Initialize NIM components
+        modelHealthStore = ModelHealthStore(this)
+        modelHealthService = ModelHealthService(this, modelHealthStore) { readNimKey() }
+        nimClient = NimClient(this, modelHealthService) { readNimKey() }
+        visionManager = VisionManager(this, nimClient, lifecycle)
+
+        // Schedule daily health checks
+        HealthCheckScheduler.scheduleDailyHealthCheck(this)
+
+        // Request camera permission if not granted
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+
         setContent {
             val pm = packageManager
             val appIndex = AppIndexManager.get() ?: AppIndex(this)
@@ -80,7 +107,7 @@ class MainActivity : ComponentActivity() {
                 var status by remember { mutableStateOf<String?>(null) }
                 val messages = remember { mutableStateOf<java.util.ArrayList<ChatMessage>>(ArrayList()) }
                 val scope = rememberCoroutineScope()
-                
+
                 fun addMessage(role: ChatMessage.Role, content: String) {
                     messages.value.add(ChatMessage(role = role, content = content))
                 }
@@ -122,19 +149,58 @@ class MainActivity : ComponentActivity() {
                                 }
                                 is AuraActionRoute.AskHermes -> {
                                     Log.d("AuraRouter", "Routed ASK_HERMES input='${route.input}' matchTimeMs=${System.currentTimeMillis() - startMs}")
-                                    val result = HermesClient.send(route.input)
-                                    phase = AuraMood.ACTING
-                                    val execResult = ActionExecutor.execute(result, this@MainActivity, pm, appIndex)
-                                    // Display Hermes response in chat
-                                    when (result) {
-                                        is AuraAction.AskHermes -> addMessage(ChatMessage.Role.AURA, result.input)
-                                        is AuraAction.OpenApp -> addMessage(ChatMessage.Role.SYSTEM, "Opening ${result.target}...")
-                                        is AuraAction.CallContact -> addMessage(ChatMessage.Role.SYSTEM, "Calling ${result.name}...")
-                                        is AuraAction.SendText -> addMessage(ChatMessage.Role.SYSTEM, "Sending message to ${result.name}...")
-                                        is AuraAction.WebSearch -> addMessage(ChatMessage.Role.SYSTEM, "Searching for ${result.query}...")
-                                        else -> addMessage(ChatMessage.Role.AURA, "Done")
-                                    }
-                                    delay(900)
+                                    val startTime = System.currentTimeMillis()
+                                    var firstToken = false
+                                    var tokenCount = 0
+                                    val messageId = System.currentTimeMillis()
+                                    
+                                    // Add placeholder message for streaming
+                                    val placeholderMsg = ChatMessage(id = messageId, role = ChatMessage.Role.AURA, content = "")
+                                    messages.value.add(placeholderMsg)
+                                    
+                                    nimClient.streamChat(
+                                        messages = messages.value.map { NimClient.ChatMessage(it.role.name.lowercase(), it.content) }.toList(),
+                                        tier = NimClient.Tier.INSTANT,
+                                        onToken = { token ->
+                                            if (!firstToken) {
+                                                val ttfb = System.currentTimeMillis() - startTime
+                                                Log.d("AuraRouter", "TTFB: ${ttfb}ms")
+                                                firstToken = true
+                                            }
+                                            tokenCount++
+                                            // Update the streaming message
+                                            val idx = messages.value.indexOfFirst { it.id == messageId }
+                                            if (idx >= 0) {
+                                                val current = messages.value[idx]
+                                                messages.value[idx] = current.copy(content = current.content + token)
+                                            }
+                                        },
+                                        onComplete = { success ->
+                                            val totalTime = System.currentTimeMillis() - startTime
+                                            val finalIdx = messages.value.indexOfFirst { it.id == messageId }
+                                            if (finalIdx >= 0) {
+                                                val current = messages.value[finalIdx]
+                                                if (current.content.isEmpty()) {
+                                                    messages.value[finalIdx] = current.copy(content = "(no response)")
+                                                }
+                                            }
+                                            Log.d("AuraRouter", "NimClient stream complete: success=$success tokens=$tokenCount totalTime=${totalTime}ms")
+                                            if (!success) {
+                                                // Fallback to thinking tier
+                                                attemptThinkingTier(route.input, startTime, messages, scope)
+                                            }
+                                        },
+                                        onError = { error ->
+                                            Log.e("AuraRouter", "NimClient error: $error")
+                                            val errorIdx = messages.value.indexOfFirst { it.id == messageId }
+                                            if (errorIdx >= 0) {
+                                                val current = messages.value[errorIdx]
+                                                messages.value[errorIdx] = current.copy(content = "Error: $error")
+                                            }
+                                            // Try thinking tier as fallback
+                                            attemptThinkingTier(route.input, startTime, messages, scope)
+                                        }
+                                    )
                                 }
                             }
                         } catch (e: Exception) {
@@ -146,7 +212,105 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
-                
+
+                fun attemptThinkingTier(input: String, originalStartTime: Long, messages: java.util.ArrayList<ChatMessage>, scope: CoroutineScope) {
+                    scope.launch {
+                        Log.d("AuraRouter", "Falling back to THINKING tier")
+                        val thinkingStart = System.currentTimeMillis()
+                        var firstToken = false
+                        val messageId = System.currentTimeMillis()
+                        val placeholderMsg = ChatMessage(id = messageId, role = ChatMessage.Role.AURA, content = "(thinking...)")
+                        messages.add(placeholderMsg)
+                        
+                        nimClient.streamChat(
+                            messages = messages.map { NimClient.ChatMessage(it.role.name.lowercase(), it.content) }.toList(),
+                            tier = NimClient.Tier.THINKING,
+                            onToken = { token ->
+                                if (!firstToken) {
+                                    val ttfb = System.currentTimeMillis() - thinkingStart
+                                    Log.d("AuraRouter", "THINKING TTFB: ${ttfb}ms")
+                                    firstToken = true
+                                }
+                                val idx = messages.indexOfFirst { it.id == messageId }
+                                if (idx >= 0) {
+                                    val current = messages[idx]
+                                    messages[idx] = current.copy(content = current.content + token)
+                                }
+                            },
+                            onComplete = { success ->
+                                val totalTime = System.currentTimeMillis() - originalStartTime
+                                val finalIdx = messages.indexOfFirst { it.id == messageId }
+                                if (finalIdx >= 0) {
+                                    val current = messages[finalIdx]
+                                    if (current.content.startsWith("(thinking")) {
+                                        messages[finalIdx] = current.copy(content = current.content.replace("(thinking...)", ""))
+                                    }
+                                }
+                                Log.d("AuraRouter", "THINKING tier complete: success=$success totalTime=${System.currentTimeMillis() - originalStartTime}ms")
+                                if (!success) {
+                                    // Final fallback to contemplating tier
+                                    attemptContemplatingTier(input, originalStartTime, messages)
+                                }
+                            },
+                            onError = { error ->
+                                Log.e("AuraRouter", "THINKING tier error: $error")
+                                // Try contemplating tier
+                                attemptContemplatingTier(input, originalStartTime, messages)
+                            }
+                        )
+                    }
+                }
+
+                fun attemptContemplatingTier(input: String, originalStartTime: Long, messages: java.util.ArrayList<ChatMessage>) {
+                    Log.d("AuraRouter", "Falling back to CONTEMPLATING tier")
+                    val contemplateStart = System.currentTimeMillis()
+                    var firstToken = false
+                    val messageId = System.currentTimeMillis()
+                    val placeholderMsg = ChatMessage(id = messageId, role = ChatMessage.Role.AURA, content = "(contemplating...)")
+                    messages.add(placeholderMsg)
+                    
+                    nimClient.streamChat(
+                        messages = messages.map { NimClient.ChatMessage(it.role.name.lowercase(), it.content) }.toList(),
+                        tier = NimClient.Tier.CONTEMPLATING,
+                        onToken = { token ->
+                            if (!firstToken) {
+                                val ttfb = System.currentTimeMillis() - contemplateStart
+                                Log.d("AuraRouter", "CONTEMPLATING TTFB: ${ttfb}ms")
+                                firstToken = true
+                            }
+                            val idx = messages.indexOfFirst { it.id == messageId }
+                            if (idx >= 0) {
+                                val current = messages[idx]
+                                messages[idx] = current.copy(content = current.content + token)
+                            }
+                        },
+                        onComplete = { success ->
+                            val totalTime = System.currentTimeMillis() - originalStartTime
+                            val finalIdx = messages.indexOfFirst { it.id == messageId }
+                            if (finalIdx >= 0) {
+                                val current = messages[finalIdx]
+                                if (current.content.startsWith("(contemplating")) {
+                                    messages[finalIdx] = current.copy(content = current.content.replace("(contemplating...)", ""))
+                                }
+                            }
+                            Log.d("AuraRouter", "CONTEMPLATING tier complete: success=$success totalTime=${System.currentTimeMillis() - originalStartTime}ms")
+                            if (!success) {
+                                val finalIdx = messages.indexOfFirst { it.id == messageId }
+                                if (finalIdx >= 0) {
+                                    messages[finalIdx] = messages[finalIdx].copy(content = "All models exhausted")
+                                }
+                            }
+                        },
+                        onError = { error ->
+                            Log.e("AuraRouter", "CONTEMPLATING tier error: $error")
+                            val finalIdx = messages.indexOfFirst { it.id == messageId }
+                            if (finalIdx >= 0) {
+                                messages[finalIdx] = messages[finalIdx].copy(content = "All models failed: $error")
+                            }
+                        }
+                    )
+                }
+
                 fun startListening() {
                     if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
                         startSpeechRecognition()
@@ -154,29 +318,64 @@ class MainActivity : ComponentActivity() {
                         requestPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                     }
                 }
-                
+
                 fun stopListening() {
                     speechRecognizer?.stopListening()
                     isListening = false
                 }
-                
+
                 val shown = if (phase != AuraMood.IDLE) phase else if (focused) AuraMood.LISTENING else AuraMood.IDLE
+                var gestureMode by remember { mutableStateOf(false) }
                 AuraHomeScreen(
                     mood = shown,
                     input = input,
                     onInputChange = { input = it },
                     onSubmit = { submit() },
                     onFocusChange = { focused = it },
-                    onMic = { 
-                        if (isListening) stopListening() else startListening() 
+                    onMic = {
+                        if (isListening) stopListening() else startListening()
                     },
                     status = status,
-                    messages = messages.value as List<ChatMessage>
+                    messages = messages.value as List<ChatMessage>,
+                    gestureMode = gestureMode,
+                    onGestureToggle = { gestureMode = !gestureMode },
+                    onOrbLongPress = {
+                        if (!gestureMode) {
+                            // Request camera permission if needed
+                            if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                                visionManager.startGestureMode { gesture ->
+                                    scope.launch {
+                                        addMessage(ChatMessage.Role.SYSTEM, "Gesture: $gesture")
+                                    }
+                                }
+                                gestureMode = true
+                            } else {
+                                requestPermissionLauncher.launch(Manifest.permission.CAMERA)
+                            }
+                        } else {
+                            visionManager.stopGestureMode()
+                            gestureMode = false
+                        }
+                    }
                 )
             }
         }
     }
-    
+
+    private fun readNimKey(): String {
+        return try {
+            val file = File(filesDir, "nim.key")
+            if (file.exists()) {
+                file.readText().trim()
+            } else {
+                ""
+            }
+        } catch (e: Exception) {
+            Log.e("AuraRouter", "Failed to read NIM key", e)
+            ""
+        }
+    }
+
     private fun initSpeechRecognizer() {
         speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
         speechRecognizer?.setRecognitionListener(object : RecognitionListener {
@@ -184,20 +383,20 @@ class MainActivity : ComponentActivity() {
                 isListening = true
                 Log.d("AuraMic", "Ready for speech")
             }
-            
+
             override fun onBeginningOfSpeech() {
                 Log.d("AuraMic", "Speech started")
             }
-            
+
             override fun onRmsChanged(rmsdB: Float) {}
-            
+
             override fun onBufferReceived(buffer: ByteArray) {}
-            
+
             override fun onEndOfSpeech() {
                 isListening = false
                 Log.d("AuraMic", "Speech ended")
             }
-            
+
             override fun onError(error: Int) {
                 isListening = false
                 val errorMsg = when (error) {
@@ -214,7 +413,7 @@ class MainActivity : ComponentActivity() {
                 }
                 Log.e("AuraMic", "Speech error: $errorMsg")
             }
-            
+
             override fun onResults(results: Bundle) {
                 val matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 if (matches != null && matches.isNotEmpty()) {
@@ -222,13 +421,13 @@ class MainActivity : ComponentActivity() {
                     Log.d("AuraMic", "Recognized: $recognizedText")
                 }
             }
-            
+
             override fun onPartialResults(partialResults: Bundle) {}
-            
+
             override fun onEvent(eventType: Int, params: Bundle?) {}
         })
     }
-    
+
     private fun startSpeechRecognition() {
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
@@ -242,7 +441,7 @@ class MainActivity : ComponentActivity() {
             Log.e("AuraMic", "Failed to start listening", e)
         }
     }
-    
+
     override fun onDestroy() {
         speechRecognizer?.destroy()
         super.onDestroy()

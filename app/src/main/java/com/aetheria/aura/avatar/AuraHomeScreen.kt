@@ -53,6 +53,9 @@ fun AuraHomeScreen(
     onMic: () -> Unit,
     status: String?,
     messages: List<ChatMessage>,
+    gestureMode: Boolean = false,
+    onGestureToggle: (() -> Unit)? = null,
+    onOrbLongPress: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     var now by remember { mutableStateOf(Date()) }
@@ -108,6 +111,7 @@ fun AuraHomeScreen(
                             }
                         }
                     },
+                    onLongPress = onOrbLongPress,
                     modifier = Modifier.size(side)
                 )
             }
