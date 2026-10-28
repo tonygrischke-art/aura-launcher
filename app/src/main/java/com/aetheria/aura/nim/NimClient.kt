@@ -78,6 +78,7 @@ class NimClient(
             Tier.THINKING -> THINKING_MODELS
             Tier.VISION -> VISION_MODELS
         }
+        Log.d(TAG, "streamChat: tier=$tier models=$models")
         tryModels(models, messages, tier, 0, System.currentTimeMillis(), onToken, onComplete, onError)
     }
 
@@ -91,6 +92,7 @@ class NimClient(
         onComplete: (Boolean) -> Unit,
         onError: (String) -> Unit
     ) {
+        Log.d(TAG, "tryModels: tier=$tier models=$models index=$index")
         if (index >= models.size) {
             Log.e(TAG, "All ${tier.name} models exhausted")
             onError("All ${tier.name} models failed")
@@ -177,7 +179,7 @@ class NimClient(
         private var ttfbLogged = false
 
         override fun onOpen(eventSource: EventSource, response: Response) {
-            Log.d(TAG, "SSE connected for $model (tier=$tier)")
+            Log.d(TAG, "SSE connected for $model (tier=$tier) responseCode=${response.code}")
         }
 
         override fun onEvent(eventSource: EventSource, id: String?, eventType: String?, data: String) {
@@ -227,7 +229,7 @@ class NimClient(
             val errorMsg = t?.message ?: "Stream failed"
             val responseCode = response?.code ?: 0
             val body = try { response?.body?.string() } catch (e: Exception) { "" }
-            Log.e(TAG, "SSE failure for $model: $errorMsg, httpCode=$responseCode, body=$body", t)
+            Log.e(TAG, "SSE failure for $model: errorMsg=$errorMsg, httpCode=$responseCode, body=$body, throwable=$t", t)
             // Don't call onError here - tryModels handles fallback
             onError("$errorMsg (http=$responseCode)")
         }
