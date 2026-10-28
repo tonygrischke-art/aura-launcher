@@ -49,7 +49,7 @@ object ActionExecutor {
         }
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         Log.d("AuraRouter", "OpenApp: starting intent action=${intent.action} pkg=$pkg target='$target'")
-        try {
+        return try {
             context.startActivity(intent)
             "confirm"
         } catch (e: Exception) {
@@ -70,7 +70,7 @@ object ActionExecutor {
             Log.w("AuraRouter", "CallContact: no phone number for name='$name', opening dialer without number")
         }
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        try {
+        return try {
             context.startActivity(intent)
             "confirm"
         } catch (e: Exception) {
@@ -98,7 +98,7 @@ object ActionExecutor {
             Log.w("AuraRouter", "SendText: no SMS app found")
             return "error"
         }
-        try {
+        return try {
             context.startActivity(intent)
             "confirm"
         } catch (e: Exception) {
@@ -118,7 +118,7 @@ object ActionExecutor {
             Log.w("AuraRouter", "WebSearch: no browser/search app found")
             return "error"
         }
-        try {
+        return try {
             context.startActivity(intent)
             "confirm"
         } catch (e: Exception) {
