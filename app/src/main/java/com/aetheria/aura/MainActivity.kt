@@ -52,6 +52,7 @@ class MainActivity : ComponentActivity() {
     private var speechRecognizer: SpeechRecognizer? = null
     private var isListening = false
     private lateinit var nimClient: NimClient
+    private var currentPhase: AuraMood = AuraMood.IDLE
 
     private val requestPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) {
@@ -86,7 +87,7 @@ class MainActivity : ComponentActivity() {
             AuraTheme {
                 var input by remember { mutableStateOf("") }
                 var focused by remember { mutableStateOf(false) }
-                var phase by remember { mutableStateOf(AuraMood.IDLE) }
+                var phase by remember { mutableStateOf(currentPhase) }
                 var status by remember { mutableStateOf<String?>(null) }
                 val messages = remember { mutableStateOf<java.util.ArrayList<ChatMessage>>(ArrayList()) }
                 val scope = rememberCoroutineScope()
@@ -153,7 +154,8 @@ class MainActivity : ComponentActivity() {
         addMessageInternal(ChatMessage.Role.USER, trimmed)
         Log.d("AuraRouter", "submit cmd='$trimmed'")
         composeScope?.launch {
-            phase = AuraMood.THINKING
+            currentPhase = AuraMood.THINKING
+            runOnUiThread { currentPhase = AuraMood.THINKING }
             try {
                 // Route locally first
                 val route = CommandRouter.route(trimmed)
@@ -253,7 +255,8 @@ class MainActivity : ComponentActivity() {
                 Log.e("AuraRouter", "submit failed cmd='$trimmed'", e)
                 runOnUiThread { addMessageInternal(ChatMessage.Role.SYSTEM, "Error: ${e.message}") }
             } finally {
-                runOnUiThread { phase = AuraMood.IDLE }
+                currentPhase = AuraMood.IDLE
+                runOnUiThread { currentPhase = AuraMood.IDLE }
             }
         }
     }
