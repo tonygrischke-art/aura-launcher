@@ -16,7 +16,8 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 /**
- * Minimal NIM API client - single model, SSE streaming, no tiers/health checks
+ * NIM API client with tiered fallback: Instant -> Thinking -> Vision
+ * Models from https://integrate.api.nvidia.com/v1/models
  */
 class NimClient(
     private val context: Context,
@@ -33,7 +34,24 @@ class NimClient(
 
     private val MEDIA_TYPE = "application/json".toMediaType()
     private val ENDPOINT = "https://integrate.api.nvidia.com/v1/chat/completions"
-    private val MODEL = "nvidia/nemotron-3.5-lightning-30b-a3b"
+
+    // Tiered models (ordered by priority within tier)
+    // Instant: 0.30s TTB, Thinking: 2.34s TTB, Vision: ~3s TTB
+    enum class Tier { INSTANT, THINKING, VISION }
+
+    private val INSTANT_MODELS = listOf(
+        "nvidia/nemotron-3.5-lightning-30b-a3b",    // 0.30s TTB
+        "nvidia/nemotron-3.5-bolt-e4b"              // fallback
+    )
+    private val THINKING_MODELS = listOf(
+        "nvidia/nemotron-3-ultra-550b-a55b",        // 2.34s TTB
+        "nvidia/nemotron-4-340b-instruct"           // fallback
+    )
+    private val VISION_MODELS = listOf(
+        "meta/llama-3.2-11b-vision-instruct",       // vision primary
+        "microsoft/phi-3-vision-128k-instruct",     // vision fallback
+        "nvidia/neva-22b"                           // vision fallback
+    )
 
     companion object {
         const val TAG = "NimClient"
@@ -41,21 +59,60 @@ class NimClient(
     }
 
     /**
-     * Send a streaming chat request
+     * Send a streaming chat request with tiered fallback
      * @param messages Chat history
+     * @param tier Tier to use (INSTANT, THINKING, VISION)
      * @param onToken Callback for each token received
      * @param onComplete Callback when stream ends (success or failure)
      * @param onError Callback for errors
      */
     fun streamChat(
         messages: List<NimChatMessage>,
+        tier: Tier = Tier.INSTANT,
         onToken: (String) -> Unit,
         onComplete: (Boolean) -> Unit,
         onError: (String) -> Unit
     ) {
+        val models = when (tier) {
+            Tier.INSTANT -> INSTANT_MODELS
+            Tier.THINKING -> THINKING_MODELS
+            Tier.VISION -> VISION_MODELS
+        }
+        tryModels(models, messages, tier, 0, System.currentTimeMillis(), onToken, onComplete, onError)
+    }
+
+    private fun tryModels(
+        models: List<String>,
+        messages: List<NimChatMessage>,
+        tier: Tier,
+        index: Int,
+        overallStartTime: Long,
+        onToken: (String) -> Unit,
+        onComplete: (Boolean) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        if (index >= models.size) {
+            Log.e(TAG, "All ${tier.name} models exhausted")
+            onError("All ${tier.name} models failed")
+            // Fallback to next tier
+            val nextTier = when (tier) {
+                Tier.INSTANT -> Tier.THINKING
+                Tier.THINKING -> Tier.VISION
+                Tier.VISION -> null
+            }
+            if (nextTier != null) {
+                Log.d(TAG, "Falling back to ${nextTier.name} tier")
+                streamChat(messages, nextTier, onToken, onComplete, onError)
+            } else {
+                onError("All tiers exhausted")
+            }
+            return
+        }
+
+        val model = models[index]
         val startTime = System.currentTimeMillis()
 
-        val requestBody = buildRequestBody(messages)
+        val requestBody = buildRequestBody(model, messages)
         val request = Request.Builder()
             .url(ENDPOINT)
             .post(requestBody)
@@ -66,18 +123,21 @@ class NimClient(
 
         val streamStartTime = System.currentTimeMillis()
         val eventListener = NimEventListener(
-            model = MODEL,
+            model = model,
             streamStartTime = streamStartTime,
+            tier = tier,
+            remainingModels = models.drop(index + 1),
             onToken = onToken,
             onComplete = { success ->
-                val totalTime = System.currentTimeMillis() - startTime
-                Log.d(TAG, "NimClient stream complete: success=$success totalTime=${totalTime}ms")
+                val totalTime = System.currentTimeMillis() - overallStartTime
+                Log.d(TAG, "NimClient stream complete: success=$success tier=$tier model=$model totalTime=${totalTime}ms")
                 onComplete(success)
             },
             onError = { error ->
-                val totalTime = System.currentTimeMillis() - startTime
-                Log.e(TAG, "NimClient error after ${totalTime}ms: $error")
-                onError(error)
+                val totalTime = System.currentTimeMillis() - overallStartTime
+                Log.w(TAG, "Model $model failed after ${totalTime}ms: $error")
+                // Try next model in same tier
+                tryModels(models, messages, tier, index + 1, overallStartTime, onToken, onComplete, onError)
             }
         )
 
@@ -90,48 +150,11 @@ class NimClient(
         }.start()
     }
 
-    /**
-     * Non-streaming health check (returns true if model responds)
-     */
-    suspend fun healthCheck(): Boolean {
-        return try {
-            val key = apiKeyProvider()
-            val url = java.net.URL("https://integrate.api.nvidia.com/v1/chat/completions")
-            val connection = url.openConnection() as java.net.HttpURLConnection
-            connection.requestMethod = "POST"
-            connection.setRequestProperty("Content-Type", "application/json; utf-8")
-            connection.setRequestProperty("Accept", "application/json")
-            connection.setRequestProperty("Authorization", "Bearer $key")
-            connection.connectTimeout = 5000
-            connection.readTimeout = 5000
-            connection.doOutput = true
-
-            val requestBody = """{"model":"$MODEL","messages":[{"role":"user","content":"hi"}],"max_tokens":1,"stream":false}"""
-            val writer = java.io.OutputStreamWriter(connection.outputStream, java.nio.charset.StandardCharsets.UTF_8)
-            writer.write(requestBody)
-            writer.flush()
-            writer.close()
-
-            val responseCode = connection.responseCode
-            if (responseCode == java.net.HttpURLConnection.HTTP_OK) {
-                val reader = java.io.BufferedReader(java.io.InputStreamReader(connection.inputStream))
-                reader.readLine()
-                reader.close()
-                true
-            } else {
-                Log.w(TAG, "Health check HTTP $responseCode for $MODEL")
-                false
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "Health check exception for $MODEL: ${e.message}")
-            false
-        }
-    }
-
-    private fun buildRequestBody(messages: List<NimChatMessage>): okhttp3.RequestBody {
+    private fun buildRequestBody(model: String, messages: List<NimChatMessage>): okhttp3.RequestBody {
         val request = NimChatRequest(
-            model = MODEL,
-            messages = messages
+            model = model,
+            messages = messages,
+            stream = true
         )
         val json = gson.toJson(request)
         return json.toRequestBody(MEDIA_TYPE)
@@ -143,6 +166,8 @@ class NimClient(
     private inner class NimEventListener(
         private val model: String,
         private val streamStartTime: Long,
+        private val tier: Tier,
+        private val remainingModels: List<String>,
         private val onToken: (String) -> Unit,
         private val onComplete: (Boolean) -> Unit,
         private val onError: (String) -> Unit
@@ -152,7 +177,7 @@ class NimClient(
         private var ttfbLogged = false
 
         override fun onOpen(eventSource: EventSource, response: Response) {
-            Log.d(TAG, "SSE connected for $model")
+            Log.d(TAG, "SSE connected for $model (tier=$tier)")
         }
 
         override fun onEvent(eventSource: EventSource, id: String?, eventType: String?, data: String) {
@@ -203,7 +228,41 @@ class NimClient(
             val responseCode = response?.code ?: 0
             val body = try { response?.body?.string() } catch (e: Exception) { "" }
             Log.e(TAG, "SSE failure for $model: $errorMsg, httpCode=$responseCode, body=$body", t)
+            // Don't call onError here - tryModels handles fallback
             onError("$errorMsg (http=$responseCode)")
         }
     }
+
+    private val gson = Gson()
+
+    // Data classes
+    data class NimChatRequest(
+        val model: String,
+        val messages: List<NimChatMessage>,
+        val stream: Boolean = true,
+        val max_tokens: Int = 512,
+        val temperature: Float = 0.7f
+    )
+
+    data class NimChatMessage(
+        val role: String,
+        val content: String
+    )
+
+    data class NimChatResponse(
+        val id: String,
+        val choices: List<NimChoice>
+    )
+
+    data class NimChoice(
+        val index: Int,
+        val delta: NimDelta,
+        val finish_reason: String?
+    )
+
+    data class NimDelta(
+        val role: String?,
+        val content: String?,
+        val reasoning_content: String?
+    )
 }

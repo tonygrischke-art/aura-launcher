@@ -182,69 +182,77 @@ class MainActivity : ComponentActivity() {
                         Log.d("AuraRouter", "Routed NAVIGATE_WEB url='${route.url}' action=$result matchTimeMs=${System.currentTimeMillis() - startMs}")
                     }
                     is AuraActionRoute.AskHermes -> {
-                        Log.d("AuraRouter", "Routed ASK_HERMES input='${route.input}' matchTimeMs=${System.currentTimeMillis() - startMs}")
-                        val startTime = System.currentTimeMillis()
-                        var firstToken = false
-                        var tokenCount = 0
-                        val messageId = System.currentTimeMillis()
-                        
-                        // Add placeholder message for streaming
-                        val placeholderMsg = ChatMessage(id = messageId, role = ChatMessage.Role.AURA, content = "")
-                        runOnUiThread { addMessageInternal(ChatMessage.Role.AURA, "") }
-                        
-                        // Convert local messages to NimClient messages
-                        val nimMessages = messagesState.value.map { com.aetheria.aura.nim.NimChatMessage(it.role.name.lowercase(), it.content) }.toList()
-                        
-                        nimClient.streamChat(
-                            messages = nimMessages,
-                            onToken = { token ->
-                                if (!firstToken) {
-                                    val ttfb = System.currentTimeMillis() - startTime
-                                    Log.d("AuraRouter", "TTFB: ${ttfb}ms")
-                                    firstToken = true
-                                }
-                                tokenCount++
-                                // Update the streaming message
-                                runOnUiThread {
-                                    val idx = messagesState.value.indexOfFirst { it.id == messageId }
-                                    if (idx >= 0) {
-                                        val current = messagesState.value[idx]
-                                        messagesState.value[idx] = current.copy(content = current.content + token)
-                                    }
-                                }
-                            },
-                            onComplete = { success ->
-                                val totalTime = System.currentTimeMillis() - startTime
-                                runOnUiThread {
-                                    val finalIdx = messagesState.value.indexOfFirst { it.id == messageId }
-                                    if (finalIdx >= 0) {
-                                        val current = messagesState.value[finalIdx]
-                                        if (current.content.isEmpty()) {
-                                            messagesState.value[finalIdx] = current.copy(content = "(no response)")
+                                            Log.d("AuraRouter", "Routed ASK_HERMES input='${route.input}' matchTimeMs=${System.currentTimeMillis() - startMs}")
+                                            val startTime = System.currentTimeMillis()
+                                            var firstToken = false
+                                            var tokenCount = 0
+                                            val messageId = System.currentTimeMillis()
+
+                                            // Add placeholder message for streaming
+                                            val placeholderMsg = ChatMessage(id = messageId, role = ChatMessage.Role.AURA, content = "")
+                                            runOnUiThread { addMessageInternal(ChatMessage.Role.AURA, "") }
+
+                                            // Convert local messages to NimClient messages
+                                            val nimMessages = messagesState.value.map { com.aetheria.aura.nim.NimChatMessage(it.role.name.lowercase(), it.content) }.toList()
+
+                                            // Determine tier: VISION for image-related, THINKING for complex, INSTANT for quick
+                                            val tier = when {
+                                                route.input.contains("image") || route.input.contains("photo") || route.input.contains("picture") || route.input.contains("camera") || route.input.contains("screenshot") -> com.aetheria.aura.nim.NimClient.Tier.VISION
+                                                route.input.length > 200 -> com.aetheria.aura.nim.NimClient.Tier.THINKING
+                                                else -> com.aetheria.aura.nim.NimClient.Tier.INSTANT
+                                            }
+
+                                            nimClient.streamChat(
+                                                messages = nimMessages,
+                                                tier = tier,
+                                                onToken = { token ->
+                                                    if (!firstToken) {
+                                                        val ttfb = System.currentTimeMillis() - startTime
+                                                        Log.d("AuraRouter", "TTFB: ${ttfb}ms")
+                                                        firstToken = true
+                                                    }
+                                                    tokenCount++
+                                                    // Update the streaming message
+                                                    runOnUiThread {
+                                                        val idx = messagesState.value.indexOfFirst { it.id == messageId }
+                                                        if (idx >= 0) {
+                                                            val current = messagesState.value[idx]
+                                                            messagesState.value[idx] = current.copy(content = current.content + token)
+                                                        }
+                                                    }
+                                                },
+                                                onComplete = { success ->
+                                                    val totalTime = System.currentTimeMillis() - startTime
+                                                    runOnUiThread {
+                                                        val finalIdx = messagesState.value.indexOfFirst { it.id == messageId }
+                                                        if (finalIdx >= 0) {
+                                                            val current = messagesState.value[finalIdx]
+                                                            if (current.content.isEmpty()) {
+                                                                messagesState.value[finalIdx] = current.copy(content = "(no response)")
+                                                            }
+                                                        }
+                                                    }
+                                                    Log.d("AuraRouter", "NimClient stream complete: success=$success tokens=$tokenCount totalTime=${totalTime}ms tier=$tier")
+                                                    if (!success) {
+                                                        runOnUiThread {
+                                                            val errIdx = messagesState.value.indexOfFirst { it.id == messageId }
+                                                            if (errIdx >= 0) {
+                                                                messagesState.value[errIdx] = messagesState.value[errIdx].copy(content = "NIM unreachable (stream failed)")
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                onError = { error ->
+                                                    Log.e("AuraRouter", "NimClient error: $error")
+                                                    runOnUiThread {
+                                                        val errorIdx = messagesState.value.indexOfFirst { it.id == messageId }
+                                                        if (errorIdx >= 0) {
+                                                            messagesState.value[errorIdx] = messagesState.value[errorIdx].copy(content = "NIM unreachable ($error)")
+                                                        }
+                                                    }
+                                                }
+                                            )
                                         }
-                                    }
-                                }
-                                Log.d("AuraRouter", "NimClient stream complete: success=$success tokens=$tokenCount totalTime=${totalTime}ms")
-                                if (!success) {
-                                    runOnUiThread {
-                                        val errIdx = messagesState.value.indexOfFirst { it.id == messageId }
-                                        if (errIdx >= 0) {
-                                            messagesState.value[errIdx] = messagesState.value[errIdx].copy(content = "NIM unreachable (stream failed)")
-                                        }
-                                    }
-                                }
-                            },
-                            onError = { error ->
-                                Log.e("AuraRouter", "NimClient error: $error")
-                                runOnUiThread {
-                                    val errorIdx = messagesState.value.indexOfFirst { it.id == messageId }
-                                    if (errorIdx >= 0) {
-                                        messagesState.value[errorIdx] = messagesState.value[errorIdx].copy(content = "NIM unreachable ($error)")
-                                    }
-                                }
-                            }
-                        )
-                    }
                 }
             } catch (e: Exception) {
                 Log.e("AuraRouter", "submit failed cmd='$trimmed'", e)
