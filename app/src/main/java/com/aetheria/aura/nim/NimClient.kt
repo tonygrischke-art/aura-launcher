@@ -124,6 +124,7 @@ class NimClient(
         val request = Request.Builder()
             .url(ENDPOINT)
             .post(requestBody)
+            .addHeader("Authorization", "Bearer ${apiKeyProvider()}")
             .addHeader("Content-Type", "application/json")
             .addHeader("Accept", "text/event-stream")
             .build()
