@@ -158,8 +158,11 @@ class MainActivity : ComponentActivity() {
                                     val placeholderMsg = ChatMessage(id = messageId, role = ChatMessage.Role.AURA, content = "")
                                     messages.value.add(placeholderMsg)
                                     
+                                    // Convert local messages to NimClient messages
+                                    val nimMessages = messages.value.map { com.aetheria.aura.nim.NimClient.ChatMessage(it.role.name.lowercase(), it.content) }.toList()
+                                    
                                     nimClient.streamChat(
-                                        messages = messages.value.map { com.aetheria.aura.nim.NimClient.ChatMessage(it.role.name.lowercase(), it.content) }.toList(),
+                                        messages = nimMessages,
                                         tier = com.aetheria.aura.nim.NimClient.Tier.INSTANT,
                                         onToken = { token ->
                                             if (!firstToken) {
@@ -222,8 +225,10 @@ class MainActivity : ComponentActivity() {
                         val placeholderMsg = ChatMessage(id = messageId, role = ChatMessage.Role.AURA, content = "(thinking...)")
                         messages.add(placeholderMsg)
                         
+                        val nimMessages = messages.map { com.aetheria.aura.nim.NimClient.ChatMessage(it.role.name.lowercase(), it.content) }.toList()
+                        
                         nimClient.streamChat(
-                            messages = messages.map { com.aetheria.aura.nim.NimClient.ChatMessage(it.role.name.lowercase(), it.content) }.toList(),
+                            messages = nimMessages,
                             tier = com.aetheria.aura.nim.NimClient.Tier.THINKING,
                             onToken = { token ->
                                 if (!firstToken) {
@@ -269,8 +274,10 @@ class MainActivity : ComponentActivity() {
                     val placeholderMsg = ChatMessage(id = messageId, role = ChatMessage.Role.AURA, content = "(contemplating...)")
                     messages.add(placeholderMsg)
                     
+                    val nimMessages = messages.map { com.aetheria.aura.nim.NimClient.ChatMessage(it.role.name.lowercase(), it.content) }.toList()
+                    
                     nimClient.streamChat(
-                        messages = messages.map { com.aetheria.aura.nim.NimClient.ChatMessage(it.role.name.lowercase(), it.content) }.toList(),
+                        messages = nimMessages,
                         tier = com.aetheria.aura.nim.NimClient.Tier.CONTEMPLATING,
                         onToken = { token ->
                             if (!firstToken) {
