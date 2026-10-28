@@ -30,6 +30,12 @@ class NimClient(
         .connectTimeout(5, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
         .writeTimeout(10, TimeUnit.SECONDS)
+        .addInterceptor { chain ->
+            val request = chain.request().newBuilder()
+                .addHeader("Authorization", "Bearer ${apiKeyProvider()}")
+                .build()
+            chain.proceed(request)
+        }
         .build()
 
     private val MEDIA_TYPE = "application/json".toMediaType()
@@ -115,9 +121,8 @@ class NimClient(
         val startTime = System.currentTimeMillis()
 
         val requestBody = buildRequestBody(model, messages)
-        val url = "$ENDPOINT?api_key=${apiKeyProvider()}"  // Try query param for auth
         val request = Request.Builder()
-            .url(url)
+            .url(ENDPOINT)
             .post(requestBody)
             .addHeader("Content-Type", "application/json")
             .addHeader("Accept", "text/event-stream")
