@@ -1,18 +1,11 @@
 package com.aetheria.aura.nim
 
 import android.content.Context
-import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.preferencesKey
-import androidx.datastore.preferences.rx2.PreferenceKeys
-import androidx.datastore.rx2.RxDataStore
+import android.content.SharedPreferences
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
-import io.reactivex.Completable
-import io.reactivex.Flowable
-import io.reactivex.Single
 import java.lang.reflect.Type
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Health state of a model
@@ -41,7 +34,7 @@ data class ModelHealth(
         consecutiveFailures = 0
         lastError = null
         // Exponential moving average for latency
-        avgLatencyMs = if (avgLatencyMs == 0) latencyMs else (avgLatencyMs * 3 + latencyMs) / 4
+        avgLatencyMs = if (avgLatencyMs == 0L) latencyMs else (avgLatencyMs * 3 + latencyMs) / 4
         if (consecutiveSuccesses >= 3) state = ModelState.HEALTHY
         else if (state == ModelState.DEAD) state = ModelState.DEGRADED
     }
@@ -55,10 +48,6 @@ data class ModelHealth(
     }
 
     fun isAvailable(): Boolean = state != ModelState.DEAD
-
-    fun copyWithState(newState: ModelState): ModelHealth {
-        return copy(state = newState)
-    }
 }
 
 /**
@@ -71,7 +60,6 @@ class ModelCircuitBreaker(private val modelId: String) {
     private var failureCount = 0
     private var successCount = 0
     private var lastFailureTime = 0L
-    private var lastStateChange = System.currentTimeMillis()
 
     private val failureThreshold = 3
     private val successThreshold = 2
@@ -114,32 +102,31 @@ class ModelCircuitBreaker(private val modelId: String) {
         val backoff = minOf(baseBackoffMs * (2L shl failureCount), maxBackoffMs)
         return maxOf(0, backoff - (System.currentTimeMillis() - lastFailureTime))
     }
+
+    companion object {
+        private val baseBackoffMs = 30_000L // 30s
+        private val maxBackoffMs = 5 * 60 * 1000L // 5 min
+    }
 }
 
 /**
- * DataStore-backed model health persistence
+ * SharedPreferences-backed model health persistence
  */
 class ModelHealthStore(private val context: Context) {
     private val gson = Gson()
     private val healthMap = ConcurrentHashMap<String, ModelHealth>()
-    private val modelListType: Type = object : TypeToken<MutableMap<String, ModelHealth>>() {}.type
-
-    private val dataStore: RxDataStore<Preferences> = context.dataStore
-
-    private val HEALTH_JSON_KEY = "model_health_json"
-
-    private val healthJsonFlow: Flowable<String?> = dataStore.data
-        .map { prefs -> prefs[HEALTH_JSON_KEY] }
+    private val modelListType: Type = object : TypeToken<java.util.Map<String, ModelHealth>>() {}.type
+    private val prefsName = "model_health"
+    private val healthJsonKey = "model_health_json"
 
     init {
         loadFromDisk()
     }
 
     private fun loadFromDisk() {
-        // Synchronous load for initial cache
         try {
-            val prefs = context.getSharedPreferences("model_health", Context.MODE_PRIVATE)
-            val json = prefs.getString(HEALTH_JSON_KEY, null)
+            val prefs = context.getSharedPreferences(prefsName, Context.MODE_PRIVATE)
+            val json = prefs.getString(healthJsonKey, null)
             if (json != null) {
                 val map = gson.fromJson(json, modelListType)
                 map.forEach { (k, v) -> healthMap[k] = v }
@@ -164,19 +151,11 @@ class ModelHealthStore(private val context: Context) {
 
     private fun persistAsync() {
         val json = gson.toJson(healthMap)
-        Completable.fromAction {
-            context.getSharedPreferences("model_health", Context.MODE_PRIVATE)
+        Thread {
+            context.getSharedPreferences(prefsName, Context.MODE_PRIVATE)
                 .edit()
-                .putString(HEALTH_JSON_KEY, json)
+                .putString(healthJsonKey, json)
                 .apply()
-        }.subscribe()
+        }.start()
     }
-
-    fun getHealthFlow(): Flowable<Map<String, ModelHealth>> = healthJsonFlow
-        .map { json ->
-            if (json != null) {
-                gson.fromJson(json, modelListType)
-            } else emptyMap()
-        }
-        .onErrorReturn { emptyMap() }
 }

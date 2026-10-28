@@ -2,11 +2,6 @@ package com.aetheria.aura.nim
 
 import android.content.Context
 import android.util.Log
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleObserver
-import androidx.lifecycle.OnLifecycleEvent
-import androidx.work.CoroutineWorker
-import androidx.work.WorkerParameters
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -29,7 +24,7 @@ class ModelHealthService(
     private val context: Context,
     private val healthStore: ModelHealthStore,
     private val apiKeyProvider: () -> String
-) : LifecycleObserver {
+) {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val gson = com.google.gson.Gson()
@@ -52,8 +47,14 @@ class ModelHealthService(
         const val TAG = "ModelHealthService"
     }
 
-    @OnLifecycleEvent(Lifecycle.Event.ON_START)
-    fun onStart() {
+    // Circuit breakers per model
+    private val circuitBreakers = java.util.concurrent.ConcurrentHashMap<String, ModelCircuitBreaker>()
+
+    fun getCircuitBreaker(modelId: String): ModelCircuitBreaker {
+        return java.util.concurrent.ConcurrentHashMap<String, ModelCircuitBreaker>().getOrPut(modelId) { ModelCircuitBreaker(modelId) }
+    }
+
+    init {
         // Check if we need to run health checks (stale > 24h)
         scope.launch {
             checkIfStaleAndRun()
@@ -73,7 +74,7 @@ class ModelHealthService(
         }
     }
 
-    private suspend fun checkAllModels() {
+    fun checkAllModels() {
         Log.d(TAG, "Starting health check for ${ALL_MODELS.size} models")
         val startTime = System.currentTimeMillis()
 
@@ -167,29 +168,5 @@ class ModelHealthService(
 
     enum class Tier {
         INSTANT, THINKING, CONTEMPLATING, VISION
-    }
-}
-
-/**
- * WorkManager worker for daily health checks
- */
-class DailyHealthCheckWorker(
-    context: Context,
-    params: WorkerParameters
-) : CoroutineWorker(context, params) {
-
-    override suspend fun doWork(): Result {
-        return try {
-            val healthStore = ModelHealthService(
-                applicationContext,
-                ModelHealthStore(applicationContext),
-                { "" } // API key not needed for WorkManager (uses app's stored key)
-            )
-            healthStore.checkAllModels()
-            Result.success()
-        } catch (e: Exception) {
-            Log.e("DailyHealthCheckWorker", "Health check failed", e)
-            Result.retry()
-        }
     }
 }
