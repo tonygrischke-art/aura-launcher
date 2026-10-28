@@ -63,15 +63,6 @@ class MainActivity : ComponentActivity() {
     // Single source of truth for messages - mutableStateOf accessible from anywhere
     private val messagesState = androidx.compose.runtime.mutableStateOf<java.util.ArrayList<ChatMessage>>(ArrayList())
 
-    private lateinit var nimClient: NimClient
-    private var currentPhase: AuraMood = AuraMood.IDLE
-
-    private val requestPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) {
-            // Permission granted, speech recognizer can be used
-        }
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Initialize AppIndex with auto-refresh on package changes
