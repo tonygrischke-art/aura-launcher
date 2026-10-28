@@ -266,6 +266,9 @@ class MainActivity : ComponentActivity() {
                 if (matches != null && matches.isNotEmpty()) {
                     val recognizedText = matches[0]
                     Log.d("AuraMic", "Recognized: $recognizedText")
+                    // Submit the recognized text as if typed
+                    input = recognizedText
+                    submit()
                 }
             }
             
