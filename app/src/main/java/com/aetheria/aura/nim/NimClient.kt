@@ -161,12 +161,12 @@ class NimClient(
             try {
                 val json = JsonParser.parseString(data).asJsonObject
                 val choices = json.getAsJsonArray("choices")
-                if (choices != null && choices.size > 0) {
+                if (choices != null && choices.size() > 0) {
                     val delta = choices[0].asJsonObject.get("delta")
                     if (delta != null && delta.isJsonObject) {
                         val content = delta.asJsonObject.get("content")
                         if (content != null && content.isJsonPrimitive) {
-                            val token = content.asJsonPrimitive.content
+                            val token = content.asJsonPrimitive.getAsString()
                             if (token.isNotEmpty()) {
                                 if (!ttfbLogged) {
                                     val ttfb = System.currentTimeMillis() - streamStartTime
@@ -190,8 +190,8 @@ class NimClient(
             onComplete(true)
         }
 
-        override fun onFailure(eventSource: EventSource, t: Throwable, response: Response?) {
-            val errorMsg = t.message ?: "Stream failed"
+        override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
+            val errorMsg = t?.message ?: "Stream failed"
             Log.e(TAG, "SSE failure for $model: $errorMsg", t)
             onError(errorMsg)
         }
