@@ -159,8 +159,8 @@ class MainActivity : ComponentActivity() {
                                     messages.value.add(placeholderMsg)
                                     
                                     nimClient.streamChat(
-                                        messages = messages.value.map { NimClient.ChatMessage(it.role.name.lowercase(), it.content) }.toList(),
-                                        tier = NimClient.Tier.INSTANT,
+                                        messages = messages.value.map { com.aetheria.aura.nim.NimClient.ChatMessage(it.role.name.lowercase(), it.content) }.toList(),
+                                        tier = com.aetheria.aura.nim.NimClient.Tier.INSTANT,
                                         onToken = { token ->
                                             if (!firstToken) {
                                                 val ttfb = System.currentTimeMillis() - startTime
@@ -223,8 +223,8 @@ class MainActivity : ComponentActivity() {
                         messages.add(placeholderMsg)
                         
                         nimClient.streamChat(
-                            messages = messages.map { NimClient.ChatMessage(it.role.name.lowercase(), it.content) }.toList(),
-                            tier = NimClient.Tier.THINKING,
+                            messages = messages.map { com.aetheria.aura.nim.NimClient.ChatMessage(it.role.name.lowercase(), it.content) }.toList(),
+                            tier = com.aetheria.aura.nim.NimClient.Tier.THINKING,
                             onToken = { token ->
                                 if (!firstToken) {
                                     val ttfb = System.currentTimeMillis() - thinkingStart
@@ -270,8 +270,8 @@ class MainActivity : ComponentActivity() {
                     messages.add(placeholderMsg)
                     
                     nimClient.streamChat(
-                        messages = messages.map { NimClient.ChatMessage(it.role.name.lowercase(), it.content) }.toList(),
-                        tier = NimClient.Tier.CONTEMPLATING,
+                        messages = messages.map { com.aetheria.aura.nim.NimClient.ChatMessage(it.role.name.lowercase(), it.content) }.toList(),
+                        tier = com.aetheria.aura.nim.NimClient.Tier.CONTEMPLATING,
                         onToken = { token ->
                             if (!firstToken) {
                                 val ttfb = System.currentTimeMillis() - contemplateStart

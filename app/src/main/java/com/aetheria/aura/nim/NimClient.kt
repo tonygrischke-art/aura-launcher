@@ -17,8 +17,6 @@ import okhttp3.sse.EventSources
 import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicReference
 
 /**
  * NIM API Client with OkHttp SSE streaming and tiered model fallback
@@ -29,19 +27,19 @@ class NimClient(
     private val apiKeyProvider: () -> String
 ) {
 
-    private val gson = Gson()
-    private val parser = JsonParser()
+    private val gson = com.google.gson.Gson()
+    private val parser = com.google.gson.JsonParser()
     private val client = OkHttpClient.Builder()
-        .connectTimeout(5, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
-        .writeTimeout(10, TimeUnit.SECONDS)
+        .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+        .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+        .writeTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
         .build()
 
     private val MEDIA_TYPE = "application/json".toMediaType()
     private val ENDPOINT = "https://integrate.api.nvidia.com/v1/chat/completions"
 
     // Circuit breakers per model
-    private val circuitBreakers = ConcurrentHashMap<String, ModelCircuitBreaker>()
+    private val circuitBreakers = java.util.concurrent.ConcurrentHashMap<String, ModelCircuitBreaker>()
 
     private fun getCircuitBreaker(modelId: String): ModelCircuitBreaker {
         return circuitBreakers.getOrPut(modelId) { ModelCircuitBreaker(modelId) }
@@ -54,14 +52,9 @@ class NimClient(
 
     /**
      * Send a streaming chat request with tiered fallback
-     * @param messages Chat history
-     * @param tier Tier to use (determines model list)
-     * @param onToken Callback for each token received
-     * @param onComplete Callback when stream ends (success or failure)
-     * @param onError Callback for errors
      */
     fun streamChat(
-        messages: List<NimChatMessage>,
+        messages: List<ChatMessage>,
         tier: Tier,
         onToken: (String) -> Unit,
         onComplete: (Boolean) -> Unit,
@@ -79,7 +72,7 @@ class NimClient(
 
     private fun attemptModels(
         remainingModels: MutableList<String>,
-        messages: List<NimChatMessage>,
+        messages: List<ChatMessage>,
         onToken: (String) -> Unit,
         onComplete: (Boolean) -> Unit,
         onError: (String) -> Unit,
@@ -103,7 +96,7 @@ class NimClient(
         val startTime = System.currentTimeMillis()
 
         val requestBody = buildRequestBody(model, messages)
-        val request = Request.Builder()
+        val request = okhttp3.Request.Builder()
             .url(ENDPOINT)
             .post(requestBody)
             .addHeader("Authorization", "Bearer ${apiKeyProvider()}")
@@ -113,20 +106,20 @@ class NimClient(
 
         val streamStartTime = System.currentTimeMillis()
 
-        val eventListener = object : EventSourceListener() {
+        val eventListener = object : okhttp3.sse.EventSourceListener() {
             private val tokenBuffer = StringBuilder()
             private var tokenCount = 0
             private var ttfbLogged = false
 
-            override fun onOpen(eventSource: EventSource, response: Response) {
+            override fun onOpen(eventSource: okhttp3.sse.EventSource, response: okhttp3.Response) {
                 Log.d(TAG, "SSE connected for $model")
             }
 
-            override fun onEvent(eventSource: EventSource, id: String?, eventType: String?, data: String) {
+            override fun onEvent(eventSource: okhttp3.sse.EventSource, id: String?, eventType: String?, data: String) {
                 if (data == "[DONE]") return
 
                 try {
-                    val json = JsonParser.parseString(data).asJsonObject
+                    val json = com.google.gson.JsonParser.parseString(data).asJsonObject
                     val choices = json.getAsJsonArray("choices")
                     if (choices != null && choices.size > 0) {
                         val delta = choices[0].asJsonObject.get("delta")
@@ -151,13 +144,13 @@ class NimClient(
                     }
                 }
 
-            override fun onClosed(eventSource: EventSource) {
+            override fun onClosed(eventSource: okhttp3.sse.EventSource) {
                 val totalTime = System.currentTimeMillis() - streamStartTime
                 Log.d(TAG, "SSE closed for $model: ${tokenCount} tokens in ${totalTime}ms")
                 onComplete(true)
             }
 
-            override fun onFailure(eventSource: EventSource, t: Throwable, response: Response?) {
+            override fun onFailure(eventSource: okhttp3.sse.EventSource, t: Throwable, response: okhttp3.Response?) {
                 val errorMsg = t.message ?: "Stream failed"
                 Log.e(TAG, "SSE failure for $model: $errorMsg", t)
                 getCircuitBreaker(model).recordFailure()
@@ -166,7 +159,7 @@ class NimClient(
         }
 
         val streamStartTime = System.currentTimeMillis()
-        val eventSource = EventSources.createFactory(client).newEventSource(request, eventListener)
+        val eventSource = okhttp3.sse.EventSources.createFactory(client).newEventSource(request, eventListener)
 
         // Timeout guard
         Thread {
@@ -175,8 +168,8 @@ class NimClient(
         }.start()
     }
 
-    private fun buildRequest(messages: List<NimChatMessage>, model: String): String {
-        val json = JsonObject()
+    private fun buildRequest(messages: List<ChatMessage>, model: String): String {
+        val json = com.google.gson.JsonObject()
         json.addProperty("model", model)
         json.addProperty("stream", true)
         json.addProperty("max_tokens", 2048)
@@ -184,25 +177,25 @@ class NimClient(
 
         val messagesArray = com.google.gson.JsonArray()
         for (msg in messages) {
-            val msgObj = JsonObject()
+            val msgObj = com.google.gson.JsonObject()
             msgObj.addProperty("role", msg.role)
             msgObj.addProperty("content", msg.content)
             messagesArray.add(msgObj)
         }
         json.add("messages", messagesArray)
 
-        return gson.toJson(json)
+        return com.google.gson.Gson().toJson(json)
     }
 
-    private fun buildRequestBody(model: String, messages: List<NimChatMessage>): okhttp3.RequestBody {
+    private fun buildRequestBody(model: String, messages: List<ChatMessage>): okhttp3.RequestBody {
         val json = buildRequest(model, messages)
-        return json.toRequestBody(MEDIA_TYPE)
+        return json.toRequestBody("application/json".toMediaType())
     }
 
     private fun onModelFailure(
         failedModel: String,
         remainingModels: MutableList<String>,
-        messages: List<NimChatMessage>,
+        messages: List<ChatMessage>,
         onToken: (String) -> Unit,
         onComplete: (Boolean) -> Unit,
         onError: (String) -> Unit,
@@ -234,7 +227,7 @@ class NimClient(
         INSTANT, THINKING, CONTEMPLATING, VISION
     }
 
-    data class NimChatMessage(
+    data class ChatMessage(
         val role: String,
         val content: String
     )
