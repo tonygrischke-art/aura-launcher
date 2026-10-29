@@ -63,7 +63,7 @@ class AuraAccessibilityService : AccessibilityService() {
         val className = node.className ?: "null"
         val text = node.text ?: ""
         val contentDesc = node.contentDescription ?: ""
-        val bounds = node.boundsInScreen?.toShortString() ?: "no-bounds"
+        val bounds = node.getBoundsInScreen()?.toShortString() ?: "no-bounds"
         val clickable = node.isClickable
         val focusable = node.isFocusable
         val enabled = node.isEnabled
