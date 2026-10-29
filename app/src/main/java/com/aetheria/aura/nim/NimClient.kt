@@ -17,6 +17,7 @@ import java.util.concurrent.TimeUnit
 
 /**
  * NIM API client with tiered fallback: Instant -> Thinking -> Vision
+ * Includes circuit breaker pattern and model health tracking.
  * Models from https://integrate.api.nvidia.com/v1/models
  */
 class NimClient(
@@ -41,6 +42,9 @@ class NimClient(
     private val MEDIA_TYPE = "application/json".toMediaType()
     private val ENDPOINT = "https://integrate.api.nvidia.com/v1/chat/completions"
 
+    // Model health store for circuit breaker
+    private val healthStore = ModelHealthStore(context)
+
     // Tiered models (ordered by priority within tier)
     // Instant: 0.30s TTB, Thinking: 2.34s TTB, Vision: ~3s TTB
     enum class Tier { INSTANT, THINKING, VISION }
@@ -62,10 +66,11 @@ class NimClient(
     companion object {
         const val TAG = "NimClient"
         const val STREAM_TIMEOUT_MS = 60_000L
+        const val HEALTH_CHECK_TIMEOUT_MS = 5_000L
     }
 
     /**
-     * Send a streaming chat request with tiered fallback
+     * Send a streaming chat request with tiered fallback and circuit breaker
      * @param messages Chat history
      * @param tier Tier to use (INSTANT, THINKING, VISION)
      * @param onToken Callback for each token received
@@ -84,8 +89,38 @@ class NimClient(
             Tier.THINKING -> THINKING_MODELS
             Tier.VISION -> VISION_MODELS
         }
-        Log.d(TAG, "streamChat: tier=$tier models=$models")
-        tryModels(models, messages, tier, 0, System.currentTimeMillis(), onToken, onComplete, onError)
+        
+        // Filter out models with open circuit
+        val availableModels = healthStore.getAvailableModels(models)
+        if (availableModels.isEmpty()) {
+            Log.w(TAG, "All models in ${tier.name} tier have open circuits, falling back to next tier")
+            fallbackToNextTier(tier, messages, onToken, onComplete, onError)
+            return
+        }
+        
+        Log.d(TAG, "streamChat: tier=$tier availableModels=$availableModels")
+        tryModels(availableModels, messages, tier, 0, System.currentTimeMillis(), onToken, onComplete, onError)
+    }
+
+    /** Fallback to next tier when current tier is exhausted or all circuits open */
+    private fun fallbackToNextTier(
+        currentTier: Tier,
+        messages: List<NimChatMessage>,
+        onToken: (String) -> Unit,
+        onComplete: (Boolean) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        val nextTier = when (currentTier) {
+            Tier.INSTANT -> Tier.THINKING
+            Tier.THINKING -> Tier.VISION
+            Tier.VISION -> null
+        }
+        if (nextTier != null) {
+            Log.d(TAG, "Falling back to ${nextTier.name} tier")
+            streamChat(messages, nextTier, onToken, onComplete, onError)
+        } else {
+            onError("All tiers exhausted or circuits open")
+        }
     }
 
     private fun tryModels(
@@ -102,18 +137,7 @@ class NimClient(
         if (index >= models.size) {
             Log.e(TAG, "All ${tier.name} models exhausted")
             onError("All ${tier.name} models failed")
-            // Fallback to next tier
-            val nextTier = when (tier) {
-                Tier.INSTANT -> Tier.THINKING
-                Tier.THINKING -> Tier.VISION
-                Tier.VISION -> null
-            }
-            if (nextTier != null) {
-                Log.d(TAG, "Falling back to ${nextTier.name} tier")
-                streamChat(messages, nextTier, onToken, onComplete, onError)
-            } else {
-                onError("All tiers exhausted")
-            }
+            fallbackToNextTier(tier, messages, onToken, onComplete, onError)
             return
         }
 
@@ -141,11 +165,21 @@ class NimClient(
             onToken = onToken,
             onComplete = { success ->
                 val totalTime = System.currentTimeMillis() - overallStartTime
+                val health = healthStore.get(model)
+                if (success) {
+                    health.recordSuccess(totalTime)
+                } else {
+                    health.recordFailure()
+                }
+                healthStore.update(health)
                 Log.d(TAG, "NimClient stream complete: success=$success tier=$tier model=$model totalTime=${totalTime}ms")
                 onComplete(success)
             },
             onError = { error ->
                 val totalTime = System.currentTimeMillis() - overallStartTime
+                val health = healthStore.get(model)
+                health.recordFailure()
+                healthStore.update(health)
                 Log.w(TAG, "Model $model failed after ${totalTime}ms: $error")
                 // Try next model in same tier
                 tryModels(models, messages, tier, index + 1, overallStartTime, onToken, onComplete, onError)
@@ -169,6 +203,79 @@ class NimClient(
         )
         val json = gson.toJson(request)
         return json.toRequestBody(MEDIA_TYPE)
+    }
+
+    /**
+     * Health check for a single model - sends a minimal request with 5s timeout
+     * @param model Model to check
+     * @param callback true if healthy, false if failed
+     */
+    fun healthCheck(model: String, callback: (Boolean) -> Unit) {
+        Log.d(TAG, "Health check for $model")
+        val requestBody = buildRequestBody(model, listOf(NimChatMessage("user", "hi")))
+        val request = Request.Builder()
+            .url(ENDPOINT)
+            .post(requestBody)
+            .addHeader("Authorization", "Bearer ${apiKeyProvider()}")
+            .addHeader("Content-Type", "application/json")
+            .addHeader("Accept", "text/event-stream")
+            .build()
+
+        val eventListener = object : EventSourceListener() {
+            private var gotResponse = false
+
+            override fun onOpen(eventSource: EventSource, response: Response) {
+                if (response.code == 200) {
+                    gotResponse = true
+                }
+            }
+
+            override fun onEvent(eventSource: EventSource, id: String?, eventType: String?, data: String) {
+                if (data != "[DONE]") {
+                    gotResponse = true
+                    eventSource.cancel()
+                }
+            }
+
+            override fun onClosed(eventSource: EventSource) {
+                val health = healthStore.get(model)
+                if (gotResponse) {
+                    health.recordHealthCheckPass()
+                } else {
+                    health.recordHealthCheckFail()
+                }
+                healthStore.update(health)
+                callback(gotResponse)
+            }
+
+            override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
+                val health = healthStore.get(model)
+                health.recordHealthCheckFail()
+                healthStore.update(health)
+                Log.w(TAG, "Health check failed for $model: ${t?.message ?: "unknown"}")
+                callback(false)
+            }
+        }
+
+        val eventSource = EventSources.createFactory(client).newEventSource(request, eventListener)
+
+        // 5s timeout for health check
+        Thread {
+            Thread.sleep(HEALTH_CHECK_TIMEOUT_MS)
+            eventSource.cancel()
+        }.start()
+    }
+
+    /**
+     * Get health status for all models
+     */
+    fun getAllModelHealth(): List<ModelHealth> = healthStore.getAll()
+
+    /**
+     * Reset circuit breaker for a model (e.g., after manual intervention)
+     */
+    fun resetModelHealth(model: String) {
+        healthStore.reset(model)
     }
 
     /**

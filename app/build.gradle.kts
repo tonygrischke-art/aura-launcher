@@ -92,6 +92,9 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp-sse:4.12.0")
     implementation("com.google.code.gson:gson:2.10.1")
 
+    // WorkManager for daily health checks
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
+
     // Media3 ExoPlayer for video orb
     implementation("androidx.media3:media3-exoplayer:1.5.1")
 
