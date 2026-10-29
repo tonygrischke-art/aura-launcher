@@ -17,6 +17,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import com.aetheria.aura.net.HermesClient
 import com.aetheria.aura.actions.ActionExecutor
+import com.aetheria.aura.router.CommandRouter
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.rememberCoroutineScope
 
@@ -73,10 +74,12 @@ class MainActivity : ComponentActivity() {
                     scope.launch {
                         phase = AuraMood.THINKING
                         try {
-                            val result = HermesClient.send(cmd)
+                            // Try local command router first
+                            val localAction = CommandRouter.route(cmd)
+                            val action = localAction ?: HermesClient.send(cmd)
                             phase = AuraMood.ACTING
                             // Pass context (this@MainActivity) to ActionExecutor
-                            val execResult = ActionExecutor.execute(result, this@MainActivity, pm)
+                            val execResult = ActionExecutor.execute(action, this@MainActivity, pm)
                             handleExecResult(execResult)
                             // Small delay to show ACTING phase
                             kotlinx.coroutines.delay(900)
@@ -84,28 +87,6 @@ class MainActivity : ComponentActivity() {
                             status = "Hermes unreachable"
                         } finally {
                             phase = AuraMood.IDLE
-                        }
-                    }
-                }
-                    when {
-                        result == "confirm" -> {
-                            // Success, no status needed
-                        }
-                        result == "permission_denied" -> {
-                            status = "Contacts permission required"
-                            // Request permission for next time
-                            requestContactsPermission.launch(Manifest.permission.READ_CONTACTS)
-                        }
-                        result.startsWith("no_contact:") -> {
-                            val name = result.substringAfter("no_contact:")
-                            status = "No contact named '$name'"
-                        }
-                        result.startsWith("ambiguous_contact:") -> {
-                            val name = result.substringAfter("ambiguous_contact:")
-                            status = "Multiple contacts match '$name'. Be more specific."
-                        }
-                        else -> {
-                            status = "Action failed: $result"
                         }
                     }
                 }
