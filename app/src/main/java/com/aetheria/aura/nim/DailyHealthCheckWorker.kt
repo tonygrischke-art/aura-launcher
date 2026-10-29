@@ -7,6 +7,7 @@ import androidx.work.WorkerParameters
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
@@ -47,9 +48,9 @@ class DailyHealthCheckWorker(
                 Log.d("DailyHealthCheck", "Checking batch: $batch")
 
                 // Run health checks for this batch in parallel using coroutineScope + async
-                val results = coroutineScope {
+                val results: List<Boolean> = coroutineScope {
                     batch.map { model ->
-                        kotlinx.coroutines.async(Dispatchers.IO) {
+                        async(Dispatchers.IO) {
                             checkModelHealth(nimClient, model)
                         }
                     }.awaitAll()
