@@ -2,7 +2,7 @@ name: Build and Release Debug APK
 
 on:
   push:
-    branches: [main, phase3b-video-orb, phase3c-wire-orb, phase4a-nim-client]
+    branches: [main, phase3b-video-orb, phase3c-wire-orb, phase4a-nim-client, phase4-backend-router]
 
 permissions:
   contents: write
