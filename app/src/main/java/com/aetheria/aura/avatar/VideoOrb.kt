@@ -57,15 +57,16 @@ fun VideoOrb(
     val textureViewB = remember { TextureView(context).apply { setOpaque(false) } }
 
     // Cross-fade alpha: 0 = playerA visible, 1 = playerB visible
+    // targetValue driven by isCrossfading so the animation actually runs
+    var isCrossfading by remember { mutableStateOf(false) }
     val crossfadeAlpha by animateFloatAsState(
-        targetValue = 0f,
+        targetValue = if (isCrossfading) 1f else 0f,
         animationSpec = tween(180)
     )
 
     // Current state tracking
     var currentMood by remember { mutableStateOf(mood) }
     var pendingMood by remember { mutableStateOf<AuraMood?>(null) }
-    var isCrossfading by remember { mutableStateOf(false) }
     var playerAIsCurrent by remember { mutableStateOf(true) }
 
     // Crossfade function - stored in mutableState to be accessible from LaunchedEffect

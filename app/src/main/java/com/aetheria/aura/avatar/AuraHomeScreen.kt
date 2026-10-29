@@ -4,7 +4,6 @@ import android.content.pm.ApplicationInfo
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -36,6 +35,7 @@ import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.collections.takeLast
 
 @Composable
 fun AuraHomeScreen(
@@ -69,26 +69,36 @@ fun AuraHomeScreen(
 
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
             val side = minOf(maxWidth, maxHeight)
-            val debuggable = (LocalContext.current.applicationContext.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+            // Debug mode state - opt-in via long-press on orb
+            var debugMode by remember { mutableStateOf(false) }
             var debugMood by remember { mutableStateOf(mood) }
             VideoOrb(
-                mood = if (debuggable) debugMood else mood,
+                mood = if (debugMode) debugMood else mood,
                 modifier = Modifier.size(side)
                     .pointerInput(Unit) {
-                        if (debuggable) {
-                            detectTapGestures(onTap = {
-                                debugMood = when (debugMood) {
-                                    AuraMood.IDLE -> AuraMood.LISTENING
-                                    AuraMood.LISTENING -> AuraMood.THINKING
-                                    AuraMood.THINKING -> AuraMood.ACTING
-                                    AuraMood.ACTING -> AuraMood.IDLE
+                        detectTapGestures(
+                            onTap = {
+                                if (debugMode) {
+                                    debugMood = when (debugMood) {
+                                        AuraMood.IDLE -> AuraMood.LISTENING
+                                        AuraMood.LISTENING -> AuraMood.THINKING
+                                        AuraMood.THINKING -> AuraMood.ACTING
+                                        AuraMood.ACTING -> AuraMood.IDLE
+                                    }
                                 }
-                            })
-                        }
+                            },
+                            onLongPress = {
+                                debugMode = !debugMode
+                                if (debugMode) {
+                                    debugMood = mood // Sync debug mood to real mood when entering debug mode
+                                }
+                            }
+                        )
                     }
             )
         }
 
+        // Chat history above input
         if (status != null) {
             Text(status, color = Color.White.copy(alpha = 0.5f), fontSize = 13.sp)
             Spacer(Modifier.height(8.dp))

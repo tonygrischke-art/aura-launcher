@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.io.File
 
 plugins {
     id("com.android.application")
@@ -26,11 +27,29 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // Signing config for stable debug keystore from GitHub secrets
+    signingConfigs {
+        create("debugConfig") {
+            val storeFilePath = System.getenv("DEBUG_KEYSTORE_PATH")
+            val storePassword = System.getenv("DEBUG_KEYSTORE_PASSWORD")
+            val keyAlias = System.getenv("DEBUG_KEY_ALIAS")
+            val keyPassword = System.getenv("DEBUG_KEY_PASSWORD")
+            if (storeFilePath != null && storePassword != null && keyAlias != null && keyPassword != null) {
+                storeFile = File(storeFilePath)
+                this.storePassword = storePassword
+                this.keyAlias = keyAlias
+                this.keyPassword = keyPassword
+            }
+        }
+    }
+
     buildTypes {
         debug {
             isDebuggable = true
             isMinifyEnabled = false
             isShrinkResources = false
+            // Use stable debug keystore if configured
+            signingConfig = signingConfigs.getByName("debugConfig")
         }
         release {
             isMinifyEnabled = true

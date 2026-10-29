@@ -10,7 +10,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import com.aetheria.aura.net.HermesClient
 import com.aetheria.aura.actions.ActionExecutor
@@ -28,21 +28,42 @@ class MainActivity : ComponentActivity() {
                 var phase by remember { mutableStateOf(AuraMood.IDLE) }
                 var status by remember { mutableStateOf<String?>(null) }
                 val scope = rememberCoroutineScope()
+
                 fun submit() {
-                    val cmd = input.trim(); if (cmd.isEmpty()) return
-                    input = ""; status = null
+                    val cmd = input.trim()
+                    if (cmd.isEmpty()) return
+                    // Disable submit while phase != IDLE
+                    if (phase != AuraMood.IDLE) return
+
+                    input = ""
+                    status = null
                     scope.launch {
                         phase = AuraMood.THINKING
                         try {
                             val result = HermesClient.send(cmd)
                             phase = AuraMood.ACTING
-                            val execResult = ActionExecutor.execute(result, pm)
-                            delay(900)
-                        } catch (e: Exception) { status = "Hermes unreachable" } finally { phase = AuraMood.IDLE }
+                            // Pass context (this@MainActivity) to ActionExecutor
+                            val execResult = ActionExecutor.execute(result, this@MainActivity, pm)
+                            // Small delay to show ACTING phase
+                            kotlinx.coroutines.delay(900)
+                        } catch (e: Exception) {
+                            status = "Hermes unreachable"
+                        } finally {
+                            phase = AuraMood.IDLE
+                        }
                     }
                 }
+
                 val shown = if (phase != AuraMood.IDLE) phase else if (focused) AuraMood.LISTENING else AuraMood.IDLE
-                AuraHomeScreen(shown, input, { input = it }, { submit() }, { focused = it }, { /* mic: UI only */ }, status)
+                AuraHomeScreen(
+                    mood = shown,
+                    input = input,
+                    onInputChange = { input = it },
+                    onSubmit = { submit() },
+                    onFocusChange = { focused = it },
+                    onMic = { /* mic: UI only */ },
+                    status = status
+                )
             }
         }
     }
