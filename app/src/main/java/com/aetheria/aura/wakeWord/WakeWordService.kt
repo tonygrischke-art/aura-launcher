@@ -4,6 +4,8 @@ import android.app.Service
 import android.content.Intent
 import android.os.IBinder
 import android.util.Log
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 
 /**
  * Wake word detection service - STUB IMPLEMENTATION
@@ -55,13 +57,13 @@ class WakeWordService : Service() {
         super.onDestroy()
     }
 
-    private fun buildNotification() = android.app.NotificationCompat.Builder(this, CHANNEL_ID)
+    private fun buildNotification() = NotificationCompat.Builder(this, CHANNEL_ID)
         .setContentTitle("Aura Wake Word")
         .setContentText("Wake word detection unavailable - add Sherpa-ONNX library")
         .setSmallIcon(android.R.drawable.ic_btn_speak_now)
         .setOngoing(true)
-        .setPriority(android.app.NotificationCompat.PRIORITY_LOW)
-        .setCategory(android.app.NotificationCompat.CATEGORY_SERVICE)
+        .setPriority(NotificationCompat.PRIORITY_LOW)
+        .setCategory(NotificationCompat.CATEGORY_SERVICE)
         .build()
 
     private fun createNotificationChannel() {
