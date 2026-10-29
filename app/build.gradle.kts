@@ -13,15 +13,6 @@ val lifecycleVersion: String by project
 val coreKtxVersion: String by project
 val coroutinesVersion: String by project
 
-repositories {
-    mavenCentral()
-    google()
-    maven {
-        url = uri("https://maven.pkg.github.com/k2-fsa/sherpa-onnx")
-        name = "SherpaOnnxGitHubPackages"
-    }
-}
-
 android {
     namespace = "com.aetheria.aura"
     compileSdk = 36
