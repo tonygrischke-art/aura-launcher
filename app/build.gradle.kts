@@ -93,7 +93,7 @@ dependencies {
     implementation("com.google.code.gson:gson:2.10.1")
 
     // Sherpa-ONNX for keyword spotting (wake word)
-    implementation("com.k2fsa:sherpa-onnx-android:1.10.50")
+    implementation("com.k2fsa:sherpa-onnx:1.10.50")
 
     // WorkManager for daily health checks
     implementation("androidx.work:work-runtime-ktx:2.9.1")
