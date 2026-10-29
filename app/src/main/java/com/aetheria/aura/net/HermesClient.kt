@@ -4,6 +4,8 @@ import com.aetheria.aura.actions.AuraAction
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import java.io.InputStream
+import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
 import java.nio.charset.StandardCharsets
@@ -41,7 +43,7 @@ object HermesClient {
 
                 if (responseCode == HttpURLConnection.HTTP_OK) {
                     // Read entire response with readText()
-                    val response = connection.inputStream.readText(StandardCharsets.UTF_8)
+                    val response = InputStreamReader(connection.inputStream, StandardCharsets.UTF_8).readText()
                     // Parse the response into AuraAction
                     AuraAction.parse(response)
                 } else {
