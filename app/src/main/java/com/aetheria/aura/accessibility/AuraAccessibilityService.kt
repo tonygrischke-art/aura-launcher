@@ -64,7 +64,7 @@ class AuraAccessibilityService : AccessibilityService() {
         val text = node.text ?: ""
         val contentDesc = node.contentDescription ?: ""
         val boundsRect = node.getBoundsInScreen()
-        val bounds = boundsRect?.let { it.toShortString() } ?: "no-bounds"
+        val bounds = boundsRect?.let { "[$it.left,$it.top][$it.right,$it.bottom]" } ?: "no-bounds"
         val clickable = node.isClickable
         val focusable = node.isFocusable
         val enabled = node.isEnabled
@@ -146,8 +146,4 @@ class AuraAccessibilityService : AccessibilityService() {
             }
         }, null)
     }
-}
-
-private fun android.graphics.Rect.toShortString(): String {
-    return "[$left,$top][$right,$bottom]"
 }
