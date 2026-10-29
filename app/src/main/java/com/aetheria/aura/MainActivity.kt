@@ -38,6 +38,30 @@ class MainActivity : ComponentActivity() {
                 var status by remember { mutableStateOf<String?>(null) }
                 val scope = rememberCoroutineScope()
 
+                fun handleExecResult(result: String) {
+                    when {
+                        result == "confirm" -> {
+                            // Success, no status needed
+                        }
+                        result == "permission_denied" -> {
+                            status = "Contacts permission required"
+                            // Request permission for next time
+                            requestContactsPermission.launch(Manifest.permission.READ_CONTACTS)
+                        }
+                        result.startsWith("no_contact:") -> {
+                            val name = result.substringAfter("no_contact:")
+                            status = "No contact named '$name'"
+                        }
+                        result.startsWith("ambiguous_contact:") -> {
+                            val name = result.substringAfter("ambiguous_contact:")
+                            status = "Multiple contacts match '$name'. Be more specific."
+                        }
+                        else -> {
+                            status = "Action failed: $result"
+                        }
+                    }
+                }
+
                 fun submit() {
                     val cmd = input.trim()
                     if (cmd.isEmpty()) return
@@ -63,8 +87,6 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
-
-                fun handleExecResult(result: String) {
                     when {
                         result == "confirm" -> {
                             // Success, no status needed
