@@ -1,10 +1,7 @@
 package com.aetheria.aura
 
 import android.Manifest
-import android.content.BroadcastReceiver
-import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.speech.RecognitionListener
@@ -37,7 +34,6 @@ import com.aetheria.aura.router.AppIndexManager
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.rememberCoroutineScope
 import com.aetheria.aura.actions.AuraAction
-import com.aetheria.aura.wakeWord.WakeWordService
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -68,41 +64,16 @@ class MainActivity : ComponentActivity() {
     // Single source of truth for messages - mutableStateOf accessible from anywhere
     private val messagesState = androidx.compose.runtime.mutableStateOf<java.util.ArrayList<ChatMessage>>(ArrayList())
 
-    // Wake word detection receiver
-    private val wakeWordReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action == WakeWordService.ACTION_WAKE_WORD_DETECTED) {
-                val keyword = intent.getStringExtra("keyword") ?: "wake word"
-                Log.d("AuraRouter", "Wake word detected via broadcast: $keyword")
-                // Focus the input field and show listening state
-                runOnUiThread {
-                    // The activity is already in front (launched by service), just ensure UI is ready
-                    // Could add a visual indicator here
-                }
-            }
-        }
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Initialize AppIndex with auto-refresh on package changes
         AppIndexManager.init(this)
-        
-        // Register wake word broadcast receiver
-        registerReceiver(wakeWordReceiver, IntentFilter(WakeWordService.ACTION_WAKE_WORD_DETECTED))
 
         // Initialize SpeechRecognizer
         initSpeechRecognizer()
 
         // Initialize NimClient
         nimClient = NimClient(this) { readNimKey() }
-
-        // Check if launched from wake word
-        val wakeKeyword = intent?.getStringExtra("wake_word")
-        if (wakeKeyword != null) {
-            Log.d("AuraRouter", "Launched from wake word: $wakeKeyword")
-            // Could auto-start speech recognition here
-        }
 
         setContent {
             val pm = packageManager
@@ -385,7 +356,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         speechRecognizer?.destroy()
-        unregisterReceiver(wakeWordReceiver)
         super.onDestroy()
     }
 }

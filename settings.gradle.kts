@@ -11,10 +11,6 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven {
-            url = uri("https://maven.pkg.github.com/k2-fsa/sherpa-onnx")
-            name = "SherpaOnnxGitHubPackages"
-        }
     }
 }
 
