@@ -224,4 +224,36 @@ class CommandRouterTest {
         assertTrue(route is WebSearch)
         assertEquals("android 14", (route as WebSearch).query)
     }
+
+    @Test
+    fun `text Alisha hello routes to SendText with body`() {
+        val route = route("text Alisha hello")
+        assertTrue(route is SendText)
+        assertEquals("Alisha", (route as SendText).name)
+        assertEquals("hello", (route as SendText).body)
+    }
+
+    @Test
+    fun `text Zzzxq routes to SendText unknown contact`() {
+        val route = route("text Zzzxq")
+        assertTrue(route is SendText)
+        assertEquals("Zzzxq", (route as SendText).name)
+        assertEquals("", (route as SendText).body)
+    }
+
+    @Test
+    fun `text Alisha no body routes to SendText`() {
+        val route = route("text Alisha")
+        assertTrue(route is SendText)
+        assertEquals("Alisha", (route as SendText).name)
+        assertEquals("", (route as SendText).body)
+    }
+
+    @Test
+    fun `Text ALISHA hi case insensitive verb routes to SendText`() {
+        val route = route("Text ALISHA hi")
+        assertTrue(route is SendText)
+        assertEquals("ALISHA", (route as SendText).name)
+        assertEquals("hi", (route as SendText).body)
+    }
 }

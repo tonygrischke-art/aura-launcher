@@ -7,13 +7,13 @@ import java.io.FileInputStream
 import java.io.FileOutputStream
 
 /**
- * Manages model files - copies from shared storage to app private storage on first run.
- * Models are expected at /sdcard/Download/aura_models/
+ * Manages model files - copies from app-specific external storage to app private storage on first run.
+ * Models are expected at getExternalFilesDir("models") - no READ_EXTERNAL_STORAGE needed.
+ * Stage via rish: cp /sdcard/Download/aura_models/* /sdcard/Android/data/com.aetheria.aura/files/models/
  */
 object ModelFileManager {
 
     private const val TAG = "ModelFileManager"
-    private const val SOURCE_DIR = "/sdcard/Download/aura_models/"
     private const val PREFS_KEY = "models_copied"
 
     private val MODEL_FILES = listOf(
@@ -22,7 +22,7 @@ object ModelFileManager {
         "gemma-3-270m-it-Q4_K_M.gguf" to 253115424L
     )
 
-    /** Checks if models exist in app private storage, copies from shared storage if needed. */
+    /** Checks if models exist in app private storage, copies from external files dir if needed. */
     fun ensureModelsAvailable(context: Context): Boolean {
         val prefs = context.getSharedPreferences("model_prefs", Context.MODE_PRIVATE)
         if (prefs.getBoolean(PREFS_KEY, false)) {
@@ -30,15 +30,15 @@ object ModelFileManager {
             return verifyModels(context)
         }
 
-        Log.i(TAG, "Models not copied yet, copying from shared storage...")
+        Log.i(TAG, "Models not copied yet, copying from external files dir...")
         return copyModels(context)
     }
 
-    /** Copies model files from shared storage to app private storage. */
+    /** Copies model files from external files dir to app private storage. */
     private fun copyModels(context: Context): Boolean {
-        val sourceDir = File(SOURCE_DIR)
-        if (!sourceDir.exists() || !sourceDir.isDirectory) {
-            Log.e(TAG, "Source directory not found: $SOURCE_DIR")
+        val sourceDir = context.getExternalFilesDir("models")
+        if (sourceDir == null || !sourceDir.exists() || !sourceDir.isDirectory) {
+            Log.e(TAG, "Source directory not found: ${sourceDir?.absolutePath}")
             return false
         }
 
