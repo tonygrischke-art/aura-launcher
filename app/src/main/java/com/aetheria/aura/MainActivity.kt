@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import com.aetheria.aura.model.ModelFileManager
 import com.aetheria.aura.net.HermesClient
 import com.aetheria.aura.actions.ActionExecutor
 import com.aetheria.aura.router.AppIndex
@@ -68,6 +69,12 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         // Initialize AppIndex with auto-refresh on package changes
         AppIndexManager.init(this)
+
+        // Ensure model files are available in app private storage
+        lifecycleScope.launch(Dispatchers.IO) {
+            val success = ModelFileManager.ensureModelsAvailable(this@MainActivity)
+            Log.i("ModelFileManager", "Models available: $success")
+        }
 
         // Initialize SpeechRecognizer
         initSpeechRecognizer()
