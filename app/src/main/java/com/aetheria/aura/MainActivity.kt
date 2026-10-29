@@ -1,7 +1,10 @@
 package com.aetheria.aura
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import com.aetheria.aura.avatar.AuraMood
 import com.aetheria.aura.avatar.AuraHomeScreen
 import androidx.compose.runtime.Composable
@@ -18,6 +21,12 @@ import androidx.activity.ComponentActivity
 import androidx.compose.runtime.rememberCoroutineScope
 
 class MainActivity : ComponentActivity() {
+    private val requestContactsPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (!granted) {
+            // Permission denied - will be handled on next submit attempt
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -44,12 +53,37 @@ class MainActivity : ComponentActivity() {
                             phase = AuraMood.ACTING
                             // Pass context (this@MainActivity) to ActionExecutor
                             val execResult = ActionExecutor.execute(result, this@MainActivity, pm)
+                            handleExecResult(execResult)
                             // Small delay to show ACTING phase
                             kotlinx.coroutines.delay(900)
                         } catch (e: Exception) {
                             status = "Hermes unreachable"
                         } finally {
                             phase = AuraMood.IDLE
+                        }
+                    }
+                }
+
+                fun handleExecResult(result: String) {
+                    when {
+                        result == "confirm" -> {
+                            // Success, no status needed
+                        }
+                        result == "permission_denied" -> {
+                            status = "Contacts permission required"
+                            // Request permission for next time
+                            requestContactsPermission.launch(Manifest.permission.READ_CONTACTS)
+                        }
+                        result.startsWith("no_contact:") -> {
+                            val name = result.substringAfter("no_contact:")
+                            status = "No contact named '$name'"
+                        }
+                        result.startsWith("ambiguous_contact:") -> {
+                            val name = result.substringAfter("ambiguous_contact:")
+                            status = "Multiple contacts match '$name'. Be more specific."
+                        }
+                        else -> {
+                            status = "Action failed: $result"
                         }
                     }
                 }

@@ -11,6 +11,9 @@ sealed class AuraAction {
     /** Action to open an app by matching the target against installed app labels */
     data class OpenApp(val target: String) : AuraAction()
 
+    /** Action to send a text message to a contact */
+    data class SendText(val name: String, val body: String) : AuraAction()
+
     /** Action for any unrecognized or unhandled command */
     object Unknown : AuraAction()
 
@@ -29,6 +32,11 @@ sealed class AuraAction {
                     "open_app" -> {
                         val target = args?.getString("target") ?: ""
                         AuraAction.OpenApp(target)
+                    }
+                    "send_text" -> {
+                        val name = args?.getString("name") ?: ""
+                        val body = args?.getString("body") ?: ""
+                        AuraAction.SendText(name, body)
                     }
                     else -> AuraAction.Unknown
                 }
