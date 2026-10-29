@@ -13,6 +13,8 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,6 +35,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
 import com.aetheria.aura.ChatMessage
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
@@ -53,6 +57,7 @@ fun AuraHomeScreen(
     onMic: () -> Unit,
     status: String?,
     messages: List<ChatMessage>,
+    onSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var now by remember { mutableStateOf(Date()) }
@@ -70,9 +75,34 @@ fun AuraHomeScreen(
             .padding(horizontal = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(Modifier.height(28.dp))
-        Text(clock, color = Color.White, fontSize = 64.sp, fontWeight = FontWeight.Thin)
-        Text(date, color = Color.White.copy(alpha = 0.6f), fontSize = 16.sp)
+        // Top row with clock and settings button
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Spacer(Modifier.height(28.dp))
+                Text(clock, color = Color.White, fontSize = 64.sp, fontWeight = FontWeight.Thin)
+                Text(date, color = Color.White.copy(alpha = 0.6f), fontSize = 16.sp)
+            }
+            
+            // Settings button
+            androidx.compose.material3.IconButton(
+                onClick = onSettings,
+                modifier = Modifier.padding(end = 8.dp)
+            ) {
+                androidx.compose.material3.Icon(
+                    imageVector = Icons.Filled.Settings,
+                    contentDescription = "Settings",
+                    tint = Color.White.copy(alpha = 0.7f),
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
 
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
             val side = minOf(maxWidth, maxHeight)

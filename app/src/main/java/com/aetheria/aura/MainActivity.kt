@@ -1,9 +1,12 @@
 package com.aetheria.aura
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.SharedPreferences
 import android.os.Bundle
+import android.provider.Settings as SystemSettings
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
@@ -35,11 +38,43 @@ import com.aetheria.aura.router.AppIndexManager
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.rememberCoroutineScope
 import com.aetheria.aura.actions.AuraAction
+import com.aetheria.aura.accessibility.AuraAccessibilityService
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.ArrayList
+// Compose UI imports for SettingsScreen
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.HelpOutline
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Send
+
+// Top-level PermissionItem for onboarding
+data class PermissionItem(
+    val permission: String,
+    val title: String,
+    val description: String,
+    val isSpecial: Boolean = false,
+    val settingsAction: String? = null
+)
 
 data class ChatMessage(
     val id: Long = System.currentTimeMillis(),
@@ -56,10 +91,18 @@ class MainActivity : ComponentActivity() {
     private lateinit var nimClient: NimClient
     private var currentPhase: AuraMood = AuraMood.IDLE
 
+    // Permission onboarding state
+    private val prefsName = "aura_prefs"
+    private val prefsFirstRunKey = "first_run_complete"
+    private val prefsAccessibilityEnabledKey = "accessibility_enabled"
+    
+    // Permission request launchers
     private val requestPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) {
-            // Permission granted, speech recognizer can be used
-        }
+        // Permission result handled by onboarding UI
+    }
+    
+    private val requestMultiplePermissionsLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
+        // Handled by onboarding UI
     }
 
     // Single source of truth for messages - mutableStateOf accessible from anywhere
@@ -91,6 +134,10 @@ class MainActivity : ComponentActivity() {
                 Log.d("AuraRouter", "AppIndex built: $count apps in ${buildTimeMs}ms")
             }
 
+            // Check if first run onboarding is needed
+            val prefs = getSharedPreferences(prefsName, MODE_PRIVATE)
+            val firstRunComplete = prefs.getBoolean(prefsFirstRunKey, false)
+            
             AuraTheme {
                 var input by remember { mutableStateOf("") }
                 var focused by remember { mutableStateOf(false) }
@@ -98,6 +145,12 @@ class MainActivity : ComponentActivity() {
                 var status by remember { mutableStateOf<String?>(null) }
                 val messages = messagesState
                 val scope = rememberCoroutineScope()
+                
+                // Settings screen state
+                var showSettings by remember { mutableStateOf(false) }
+                
+                // Onboarding state
+                var showOnboarding by remember { mutableStateOf(!firstRunComplete) }
                 
                 fun addMessage(role: ChatMessage.Role, content: String) {
                     val msg = ChatMessage(role = role, content = content)
@@ -124,18 +177,44 @@ class MainActivity : ComponentActivity() {
                 }
 
                 val shown = if (phase != AuraMood.IDLE) phase else if (focused) AuraMood.LISTENING else AuraMood.IDLE
-                AuraHomeScreen(
-                    mood = shown,
-                    input = input,
-                    onInputChange = { input = it },
-                    onSubmit = { submit() },
-                    onFocusChange = { focused = it },
-                    onMic = {
-                        if (isListening) stopListening() else startListening()
-                    },
-                    status = status,
-                    messages = messages.value as List<ChatMessage>
-                )
+                
+                // Show onboarding overlay if needed
+                if (showOnboarding) {
+                    PermissionOnboardingScreen(
+                        onComplete = { 
+                            showOnboarding = false
+                            getSharedPreferences(prefsName, MODE_PRIVATE)
+                                .edit()
+                                .putBoolean(prefsFirstRunKey, true)
+                                .apply()
+                        },
+                        onSkip = {
+                            showOnboarding = false
+                            getSharedPreferences(prefsName, MODE_PRIVATE)
+                                .edit()
+                                .putBoolean(prefsFirstRunKey, true)
+                                .apply()
+                        },
+                        requestPermissionLauncher = requestPermissionLauncher,
+                        requestMultiplePermissionsLauncher = requestMultiplePermissionsLauncher
+                    )
+                } else if (showSettings) {
+                    SettingsScreen(onClose = { showSettings = false })
+                } else {
+                    AuraHomeScreen(
+                        mood = shown,
+                        input = input,
+                        onInputChange = { input = it },
+                        onSubmit = { submit() },
+                        onFocusChange = { focused = it },
+                        onMic = {
+                            if (isListening) stopListening() else startListening()
+                        },
+                        status = status,
+                        messages = messages.value as List<ChatMessage>,
+                        onSettings = { showSettings = true }
+                    )
+                }
             }
         }
     }
@@ -191,6 +270,29 @@ class MainActivity : ComponentActivity() {
                     }
                     is AuraActionRoute.AskHermes -> {
                                             Log.d("AuraRouter", "Routed ASK_HERMES input='${route.input}' matchTimeMs=${System.currentTimeMillis() - startMs}")
+                                            
+                                            // Check model source preference
+                                            val prefs = getSharedPreferences(prefsName, MODE_PRIVATE)
+                                            val modelSource = ModelSource.valueOf(
+                                                prefs.getString("model_source", ModelSource.ONLINE.name) ?: ModelSource.ONLINE.name
+                                            )
+                                            
+                                            // If OFFLINE or BOTH selected, try local first (placeholder for now)
+                                            if (modelSource == ModelSource.OFFLINE || modelSource == ModelSource.BOTH) {
+                                                // TODO: Implement local GGUF inference with llama.cpp
+                                                // For now, show info and fall through to NIM if BOTH
+                                                if (modelSource == ModelSource.OFFLINE) {
+                                                    runOnUiThread { 
+                                                        addMessageInternal(ChatMessage.Role.SYSTEM, "Offline mode selected but local inference not yet implemented. Falling back to online...") 
+                                                    }
+                                                } else {
+                                                    runOnUiThread { 
+                                                        addMessageInternal(ChatMessage.Role.SYSTEM, "Trying local model first (not yet implemented), will fallback to NIM...") 
+                                                    }
+                                                }
+                                            }
+                                            
+                                            // Use NIM (online) for now
                                             val startTime = System.currentTimeMillis()
                                             var firstToken = false
                                             var tokenCount = 0
@@ -385,4 +487,592 @@ fun AuraTheme(content: @Composable () -> Unit) {
         shapes = androidx.compose.material3.Shapes(),
         content = content
     )
+}
+
+/**
+ * Permission onboarding screen shown on first run.
+ * Guides user through granting all required permissions.
+ */
+@Composable
+fun PermissionOnboardingScreen(
+    onComplete: () -> Unit,
+    onSkip: () -> Unit,
+    requestPermissionLauncher: androidx.activity.result.ActivityResultLauncher<String>,
+    requestMultiplePermissionsLauncher: androidx.activity.result.ActivityResultLauncher<Array<String>>
+) {
+    val context = LocalContext.current
+    val pm = context.packageManager
+    
+    val permissions = remember {
+        listOf(
+            PermissionItem(
+                permission = Manifest.permission.RECORD_AUDIO,
+                title = "Microphone",
+                description = "Required for voice commands and wake word detection"
+            ),
+            PermissionItem(
+                permission = Manifest.permission.READ_CONTACTS,
+                title = "Contacts",
+                description = "Needed to send texts and make calls by name"
+            ),
+            PermissionItem(
+                permission = Manifest.permission.READ_SMS,
+                title = "SMS",
+                description = "Read and send text messages"
+            ),
+            PermissionItem(
+                permission = Manifest.permission.SEND_SMS,
+                title = "Send SMS",
+                description = "Send text messages from Aura"
+            ),
+            PermissionItem(
+                permission = Manifest.permission.CALL_PHONE,
+                title = "Phone Calls",
+                description = "Make phone calls by voice command"
+            ),
+            PermissionItem(
+                permission = Manifest.permission.CAMERA,
+                title = "Camera",
+                description = "Future: vision features and QR codes"
+            ),
+            PermissionItem(
+                permission = Manifest.permission.ACCESS_FINE_LOCATION,
+                title = "Location",
+                description = "Location-based queries and services"
+            ),
+            PermissionItem(
+                permission = Manifest.permission.READ_MEDIA_IMAGES,
+                title = "Media & Photos",
+                description = "Access photos for vision features"
+            ),
+            PermissionItem(
+                permission = Manifest.permission.SYSTEM_ALERT_WINDOW,
+                title = "Display Over Other Apps",
+                description = "Show Aura overlay and floating UI",
+                isSpecial = true,
+                settingsAction = SystemSettings.ACTION_MANAGE_OVERLAY_PERMISSION
+            ),
+            PermissionItem(
+                permission = Manifest.permission.BIND_ACCESSIBILITY_SERVICE,
+                title = "Accessibility Service",
+                description = "Screen reading and UI automation for screen-act loop",
+                isSpecial = true,
+                settingsAction = SystemSettings.ACTION_ACCESSIBILITY_SETTINGS
+            ),
+            PermissionItem(
+                permission = Manifest.permission.POST_NOTIFICATIONS,
+                title = "Notifications",
+                description = "Show Aura responses and alerts",
+                isSpecial = true,
+                settingsAction = SystemSettings.ACTION_APP_NOTIFICATION_SETTINGS
+            )
+        )
+    }
+    
+    // Track permission states
+    val ctx = LocalContext.current
+    val permissionStates = remember {
+        mutableStateMapOf<String, Boolean>().also { map ->
+            permissions.forEach { map[it.permission] = ContextCompat.checkSelfPermission(ctx, it.permission) == PackageManager.PERMISSION_GRANTED }
+        }
+    }
+    
+    val allGranted = remember { 
+        mutableStateOf(permissionStates.values.all { it }) 
+    }
+    
+    // Request permission handler
+    fun requestPermission(perm: PermissionItem) {
+        if (perm.isSpecial) {
+            // Special permissions need settings intent
+            val settingsIntent = Intent(perm.settingsAction).apply {
+                if (perm.settingsAction == SystemSettings.ACTION_APP_NOTIFICATION_SETTINGS) {
+                    putExtra(SystemSettings.EXTRA_APP_PACKAGE, context.packageName)
+                } else if (perm.settingsAction == SystemSettings.ACTION_MANAGE_OVERLAY_PERMISSION) {
+                    data = android.net.Uri.parse("package:${context.packageName}")
+                }
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(settingsIntent)
+        } else {
+            // Regular permission - use launcher
+            requestPermissionLauncher.launch(perm.permission)
+        }
+    }
+    
+    // Update allGranted when permissionStates change
+    androidx.compose.runtime.LaunchedEffect(permissionStates) {
+        allGranted.value = permissionStates.values.all { it }
+    }
+    
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        // Background overlay
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xCC000000))
+        )
+        
+        // Onboarding card
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.9f)
+                .padding(24.dp)
+                .heightIn(min = 400.dp, max = 700.dp)
+                .wrapContentHeight()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Header
+                Text(
+                    text = "Welcome to Aura",
+                    style = Typography().headlineMedium,
+                    color = Color(0xFF00E5FF),
+                    textAlign = TextAlign.Center
+                )
+                
+                Text(
+                    text = "Grant permissions to unlock all features",
+                    style = Typography().bodyMedium,
+                    color = Color.White.copy(alpha = 0.7f),
+                    textAlign = TextAlign.Center
+                )
+                
+                // Progress indicator
+                val grantedCount = permissionStates.values.count { it }
+                val totalCount = permissions.size
+                
+                LinearProgressIndicator(
+                    modifier = Modifier.fillMaxWidth(),
+                    progress = grantedCount.toFloat() / totalCount.toFloat()
+                )
+                
+                Text(
+                    text = "$grantedCount of $totalCount permissions granted",
+                    style = Typography().bodySmall,
+                    color = Color.White.copy(alpha = 0.6f),
+                    textAlign = TextAlign.Center
+                )
+                
+                // Permission list
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(300.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    permissions.forEach { perm ->
+                        val granted = permissionStates[perm.permission] ?: false
+                        
+                        PermissionRow(
+                            permission = perm,
+                            granted = granted,
+                            onRequest = { requestPermission(perm) }
+                        )
+                    }
+                }
+                
+                // Action buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onSkip,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Skip for now")
+                    }
+                    
+                    Button(
+                        onClick = {
+                            if (allGranted.value) onComplete()
+                        },
+                        modifier = Modifier.weight(1f),
+                        enabled = allGranted.value,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (allGranted.value) Color(0xFF00E5FF) else Color.White.copy(alpha = 0.1f),
+                            contentColor = if (allGranted.value) Color.Black else Color.White.copy(alpha = 0.3f)
+                        )
+                    ) {
+                        Text(if (allGranted.value) "Continue" else "Grant all first")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PermissionRow(
+    permission: PermissionItem,
+    granted: Boolean,
+    onRequest: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+            .background(
+                if (granted) Color(0xFF00E5FF).copy(alpha = 0.1f) else Color.Transparent,
+                shape = Shapes().small
+            )
+            .padding(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Status icon
+        Icon(
+            imageVector = if (granted) 
+                Icons.Filled.CheckCircle 
+            else if (permission.isSpecial) 
+                Icons.Filled.Settings 
+            else 
+                Icons.Filled.HelpOutline,
+            contentDescription = if (granted) "Granted" else "Not granted",
+            tint = if (granted) Color(0xFF00E5FF) else Color.White.copy(alpha = 0.5f),
+            modifier = Modifier.size(24.dp)
+        )
+        
+        // Info
+        Column(
+            modifier = Modifier.weight(1f)
+        ) {
+            Text(
+                text = permission.title,
+                style = Typography().bodyMedium,
+                color = Color.White
+            )
+            Text(
+                text = permission.description,
+                style = Typography().bodySmall,
+                color = Color.White.copy(alpha = 0.6f)
+            )
+        }
+        
+        // Action button
+        if (!granted) {
+            Button(
+                onClick = onRequest,
+                modifier = Modifier.padding(start = 8.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (permission.isSpecial) Color.White.copy(alpha = 0.1f) else Color(0xFF00E5FF),
+                    contentColor = if (permission.isSpecial) Color.White else Color.Black
+                )
+            ) {
+                Text(if (permission.isSpecial) "Open Settings" else "Grant")
+            }
+        } else {
+            Text(
+                text = "✓ Granted",
+                style = Typography().bodySmall,
+                color = Color(0xFF00E5FF)
+            )
+        }
+    }
+}
+
+@Composable
+fun SettingsScreen(
+    onClose: () -> Unit
+) {
+    val context = LocalContext.current
+    val prefs = context.getSharedPreferences("aura_prefs", android.content.Context.MODE_PRIVATE)
+    
+    // Model source preference
+    var modelSource by remember { mutableStateOf(
+        ModelSource.valueOf(prefs.getString("model_source", ModelSource.ONLINE.name) ?: ModelSource.ONLINE.name)
+    ) }
+    
+    // Show onboarding on next launch
+    var showOnboardingOnNextLaunch by remember { mutableStateOf(
+        prefs.getBoolean("show_onboarding_next_launch", false)
+    ) }
+    
+    // NIM key status
+    val nimKeyExists = File(context.filesDir, "nim.key").exists()
+    
+    // Local models status
+    val localModelsDir = File(context.filesDir, "models")
+    val localModelsExist = localModelsDir.exists() && localModelsDir.listFiles()?.isNotEmpty() == true
+    
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        // Background overlay
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xCC000000))
+        )
+        
+        // Settings card
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.9f)
+                .padding(24.dp)
+                .heightIn(min = 400.dp, max = 700.dp)
+                .wrapContentHeight()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Header with close button
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Settings",
+                        style = Typography().headlineMedium,
+                        color = Color(0xFF00E5FF)
+                    )
+                    
+                    IconButton(
+                        onClick = onClose,
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Close,
+                            contentDescription = "Close settings",
+                            tint = Color.White
+                        )
+                    }
+                }
+                
+                // Model Source Selection
+                Text(
+                    text = "AI Model Source",
+                    style = Typography().titleMedium,
+                    color = Color(0xFF00E5FF)
+                )
+                
+                Text(
+                    text = "Choose how Aura processes your requests",
+                    style = Typography().bodySmall,
+                    color = Color.White.copy(alpha = 0.6f)
+                )
+                
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    ModelSource.values().forEach { source ->
+                        val isSelected = (modelSource == source)
+                        val isAvailable = when (source) {
+                            ModelSource.ONLINE -> nimKeyExists
+                            ModelSource.OFFLINE -> localModelsExist
+                            ModelSource.BOTH -> nimKeyExists || localModelsExist
+                        }
+                        
+                        val itemEnabled = isAvailable
+                        
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    if (isSelected) Color(0xFF00E5FF).copy(alpha = 0.15f)
+                                    else if (!itemEnabled) Color.White.copy(alpha = 0.05f)
+                                    else Color.Transparent
+                                ),
+                            onClick = { 
+                                if (itemEnabled) {
+                                    modelSource = source
+                                    prefs.edit().putString("model_source", source.name).apply()
+                                }
+                            }
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = isSelected,
+                                    onClick = { 
+                                        if (itemEnabled) {
+                                            modelSource = source
+                                            prefs.edit().putString("model_source", source.name).apply()
+                                        }
+                                    },
+                                    enabled = itemEnabled,
+                                    modifier = Modifier.padding(end = 12.dp)
+                                )
+                                
+                                Column(
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text(
+                                        text = source.displayName,
+                                        style = Typography().bodyMedium,
+                                        color = if (itemEnabled) Color.White else Color.White.copy(alpha = 0.4f)
+                                    )
+                                    Text(
+                                        text = source.description,
+                                        style = Typography().bodySmall,
+                                        color = if (itemEnabled) Color.White.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.3f)
+                                    )
+                                }
+                                
+                                if (!itemEnabled) {
+                                    Text(
+                                        text = "Unavailable",
+                                        style = Typography().bodySmall,
+                                        color = Color.White.copy(alpha = 0.4f),
+                                        modifier = Modifier.padding(start = 8.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Divider
+                Divider(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 16.dp),
+                    color = Color.White.copy(alpha = 0.2f),
+                    thickness = 1.dp
+                )
+                
+                // Other Settings
+                Text(
+                    text = "Other Settings",
+                    style = Typography().titleMedium,
+                    color = Color(0xFF00E5FF)
+                )
+                
+                // Show onboarding toggle
+                var showOnboardingNextLaunch by remember { mutableStateOf(
+                    context.getSharedPreferences("aura_prefs", android.content.Context.MODE_PRIVATE)
+                        .getBoolean("show_onboarding_next_launch", false)
+                ) }
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Show onboarding on next launch",
+                            style = Typography().bodyMedium,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "Re-run permission onboarding",
+                            style = Typography().bodySmall,
+                            color = Color.White.copy(alpha = 0.6f)
+                        )
+                    }
+                    
+                    Switch(
+                        checked = showOnboardingNextLaunch,
+                        onCheckedChange = { checked ->
+                            showOnboardingNextLaunch = checked
+                            context.getSharedPreferences("aura_prefs", android.content.Context.MODE_PRIVATE)
+                                .edit()
+                                .putBoolean("show_onboarding_next_launch", checked)
+                                .apply()
+                        }
+                    )
+                }
+                
+                // NIM Key Status
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "NIM API Key",
+                            style = Typography().bodyMedium,
+                            color = Color.White
+                        )
+                        Text(
+                            text = if (nimKeyExists) "Configured ✓" else "Not set - online models unavailable",
+                            style = Typography().bodySmall,
+                            color = if (nimKeyExists) Color(0xFF00E5FF) else Color.White.copy(alpha = 0.6f)
+                        )
+                    }
+                    
+                    if (!nimKeyExists) {
+                        OutlinedButton(
+                            onClick = {
+                                // Could open key management screen
+                            },
+                            modifier = Modifier.padding(start = 8.dp)
+                        ) {
+                            Text("Add Key")
+                        }
+                    }
+                }
+                
+                // Local Models Status
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Local Models (GGUF)",
+                            style = Typography().bodyMedium,
+                            color = Color.White
+                        )
+                        Text(
+                            text = if (localModelsExist) "Available ✓" else "Not found - copy to /data/data/com.aetheria.aura/files/models/",
+                            style = Typography().bodySmall,
+                            color = if (localModelsExist) Color(0xFF00E5FF) else Color.White.copy(alpha = 0.6f)
+                        )
+                    }
+                    
+                    if (!localModelsExist) {
+                        OutlinedButton(
+                            onClick = {
+                                // Could open file manager or show instructions
+                            },
+                            modifier = Modifier.padding(start = 8.dp)
+                        ) {
+                            Text("Manage")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+enum class ModelSource {
+    ONLINE("Online (NIM)", "NVIDIA NIM API - requires internet, fastest"),
+    OFFLINE("Offline (Local)", "Local GGUF models - private, no internet needed"),
+    BOTH("Auto (Offline → Online)", "Try local first, fallback to NIM");
+
+    val displayName: String
+    val description: String
+
+    constructor(displayName: String, description: String) {
+        this.displayName = displayName
+        this.description = description
+    }
 }

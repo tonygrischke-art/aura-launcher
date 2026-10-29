@@ -69,13 +69,14 @@ dependencies {
     val composeBom = platform("androidx.compose:compose-bom:$composeBomVersion")
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.ui:ui-text:1.6.8")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.runtime:runtime")
     implementation("androidx.compose.runtime:runtime-livedata")
     implementation("androidx.compose.foundation:foundation")
-    implementation("androidx.compose.foundation:foundation-layout")
+    implementation("androidx.compose.foundation:foundation-layout:1.6.8")
     implementation("androidx.compose.animation:animation")
     implementation("androidx.compose.animation:animation-core")
     implementation("androidx.activity:activity-compose:$activityComposeVersion")
@@ -91,6 +92,10 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.okhttp3:okhttp-sse:4.12.0")
     implementation("com.google.code.gson:gson:2.10.1")
+
+    // Material Icons
+    implementation("androidx.compose.material:material-icons-core")
+    implementation("androidx.compose.material:material-icons-extended")
 
     // WorkManager for daily health checks
     implementation("androidx.work:work-runtime-ktx:2.9.1")
