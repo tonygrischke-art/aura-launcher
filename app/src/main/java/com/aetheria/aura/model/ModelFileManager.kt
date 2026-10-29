@@ -15,6 +15,7 @@ object ModelFileManager {
 
     private const val TAG = "ModelFileManager"
     private const val PREFS_KEY = "models_copied"
+    private const val VERSION = 2
 
     private val MODEL_FILES = listOf(
         "Qwen-3-VL-2B-Instruct-heretic.i1-Q4_K_M.gguf" to 1107411168L,
@@ -25,12 +26,11 @@ object ModelFileManager {
     /** Checks if models exist in app private storage, copies from external files dir if needed. */
     fun ensureModelsAvailable(context: Context): Boolean {
         val prefs = context.getSharedPreferences("model_prefs", Context.MODE_PRIVATE)
-        if (prefs.getBoolean(PREFS_KEY, false)) {
-            // Verify files still exist and have correct sizes
+        if (prefs.getBoolean(PREFS_KEY, false) && prefs.getInt("model_version", 0) == VERSION) {
             return verifyModels(context)
         }
 
-        Log.i(TAG, "Models not copied yet, copying from external files dir...")
+        Log.i(TAG, "Models not copied yet or version changed, copying from external files dir...")
         return copyModels(context)
     }
 
@@ -83,6 +83,7 @@ object ModelFileManager {
             context.getSharedPreferences("model_prefs", Context.MODE_PRIVATE)
                 .edit()
                 .putBoolean(PREFS_KEY, true)
+                .putInt("model_version", VERSION)
                 .apply()
         }
 
