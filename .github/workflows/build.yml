@@ -39,6 +39,14 @@ jobs:
           echo "$DEBUG_KEYSTORE_BASE64" | base64 -d > debug.keystore
           echo "DEBUG_KEYSTORE_PATH=$(pwd)/debug.keystore" >> $GITHUB_ENV
 
+      - name: Log keystore source
+        run: |
+          if [ -n "$DEBUG_KEYSTORE_PATH" ]; then
+            echo "Using secrets keystore from GitHub secrets"
+          else
+            echo "Using fallback debug keystore (auto-generated)"
+          fi
+
       - name: Build debug APK (tee output to ci-log.txt)
         run: |
           chmod +x ./gradlew

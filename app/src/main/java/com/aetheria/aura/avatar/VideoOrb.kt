@@ -1,6 +1,7 @@
 package com.aetheria.aura.avatar
 
 import android.content.Context
+import android.net.Uri
 import android.view.TextureView
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -20,18 +21,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.media3.common.MediaItem
-import androidx.media3.common.util.UnstableApi
-import androidx.media3.datasource.RawResourceDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import com.aetheria.aura.R
 
-@OptIn(UnstableApi::class)
 @Composable
 fun VideoOrb(
     mood: AuraMood,
@@ -82,7 +80,8 @@ fun VideoOrb(
             AuraMood.THINKING -> R.raw.aura_thinking
             AuraMood.ACTING -> R.raw.aura_acting
         }
-        val uri = RawResourceDataSource.buildRawResourceUri(clipRes)
+        val resName = context.resources.getResourceEntryName(clipRes)
+        val uri = Uri.parse("android.resource://${context.packageName}/raw/$resName")
         val mediaItem = MediaItem.fromUri(uri)
 
         nextPlayer.setMediaItem(mediaItem)
@@ -186,7 +185,8 @@ fun VideoOrb(
         playerB.setVideoTextureView(textureViewB)
 
         // Start with idle clip on player A
-        val uri = RawResourceDataSource.buildRawResourceUri(clipResId)
+        val resName = context.resources.getResourceEntryName(clipResId)
+        val uri = Uri.parse("android.resource://${context.packageName}/raw/$resName")
         val mediaItem = MediaItem.fromUri(uri)
         playerA.setMediaItem(mediaItem)
         playerA.prepare()
