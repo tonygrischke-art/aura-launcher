@@ -2,6 +2,8 @@ name: Build and Release Debug APK
 
 on:
   push:
+    branches: [main, "audit/**"]
+  pull_request:
     branches: [main]
 
 permissions:
