@@ -17,13 +17,13 @@ jobs:
   build-release:
     name: Assemble debug APK and publish release
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -33,6 +33,14 @@ jobs:
         run: |
           chmod +x ./gradlew
           ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Run lint
+        run: |
+          ./gradlew lint --no-daemon --stacktrace
+
+      - name: Run unit tests
+        run: |
+          ./gradlew testDebugUnitTest --no-daemon --stacktrace
 
       - name: Publish APK to GitHub Release (tag = short commit hash)
         env:
