@@ -8,12 +8,14 @@ import androidx.work.PeriodicWorkRequest
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.OneTimeWorkRequestBuilder
+import com.aetheria.aura.model.ModelFileManager
 import com.aetheria.aura.nim.DailyHealthCheckWorker
 import java.util.concurrent.TimeUnit
 
 class AuraApplication : Application() {
     override fun onCreate() {
         super.onCreate()
+        ModelFileManager.status(this)
         scheduleDailyHealthCheck()
     }
 
