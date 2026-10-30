@@ -15,6 +15,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.aetheria.aura.avatar.AuraMood
 import com.aetheria.aura.avatar.AuraHomeScreen
 import com.aetheria.aura.nim.NimChatMessage
@@ -39,6 +40,7 @@ import androidx.activity.ComponentActivity
 import androidx.compose.runtime.rememberCoroutineScope
 import com.aetheria.aura.actions.AuraAction
 import com.aetheria.aura.accessibility.AuraAccessibilityService
+import com.aetheria.aura.wakeWord.WakeWordService
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -124,6 +126,17 @@ class MainActivity : ComponentActivity() {
 
         // Initialize NimClient
         nimClient = NimClient(this) { readNimKey() }
+
+        // Start wake word service on resume (API 34+ requires activity in foreground for microphone FGS)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            lifecycleScope.launch {
+                lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) {
+                    val serviceIntent = Intent(this@MainActivity, WakeWordService::class.java)
+                    startForegroundService(serviceIntent)
+                    Log.i("AuraRouter", "Started WakeWordService from MainActivity.onResume (API 34+, RESUMED)")
+                }
+            }
+        }
 
         setContent {
             val pm = packageManager

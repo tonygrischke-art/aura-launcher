@@ -1,6 +1,7 @@
 package com.aetheria.aura.wakeWord
 
 import android.app.Service
+import android.content.pm.ServiceInfo
 import android.content.Intent
 import android.os.IBinder
 import android.util.Log
@@ -44,9 +45,20 @@ class WakeWordService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (!isRunning) {
-            startForeground(NOTIFICATION_ID, buildNotification())
-            isRunning = true
-            Log.d(TAG, "WakeWordService started (stub mode)")
+            val notification = buildNotification()
+            try {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                    startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+                } else {
+                    startForeground(NOTIFICATION_ID, notification)
+                }
+                isRunning = true
+                Log.d(TAG, "WakeWordService started (stub mode)")
+            } catch (e: SecurityException) {
+                Log.e(TAG, "Cannot start microphone foreground service: ${e.message}. Stopping service.")
+                stopSelf()
+                return START_NOT_STICKY
+            }
         }
         return START_STICKY
     }
