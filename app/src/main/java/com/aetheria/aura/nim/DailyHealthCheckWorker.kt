@@ -97,10 +97,8 @@ class DailyHealthCheckWorker(
     }
 
     private fun getApiKey(): String? {
-        // Read from app's private files (debuggable APK only)
-        val file = java.io.File(applicationContext.filesDir, "nim.key")
-        return if (file.exists()) {
-            file.readText().trim().takeIf { it.isNotBlank() }
-        } else null
+        // Read from SharedPreferences (same as MainActivity)
+        val prefs = applicationContext.getSharedPreferences("aura_prefs", android.content.Context.MODE_PRIVATE)
+        return prefs.getString("nim_key", "")?.takeIf { it.isNotBlank() }
     }
 }
