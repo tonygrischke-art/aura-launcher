@@ -22,7 +22,9 @@ import com.aetheria.aura.nim.NimChatMessage
 import com.aetheria.aura.nim.NimClient
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
@@ -45,22 +47,23 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import java.util.ArrayList
-// Compose UI imports for SettingsScreen
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
-import androidx.compose.runtime.mutableStateMapOf
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.*
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
@@ -68,6 +71,7 @@ import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Send
+import com.aetheria.aura.model.ModelFileManager
 
 // Top-level PermissionItem for onboarding
 data class PermissionItem(
@@ -396,12 +400,8 @@ class MainActivity : ComponentActivity() {
 
     private fun readNimKey(): String {
         return try {
-            val file = File(filesDir, "nim.key")
-            if (file.exists()) {
-                file.readText().trim()
-            } else {
-                ""
-            }
+            val prefs = getSharedPreferences("aura_prefs", MODE_PRIVATE)
+            prefs.getString("nim_key", "") ?: ""
         } catch (e: Exception) {
             Log.e("AuraRouter", "Failed to read NIM key", e)
             ""
@@ -793,29 +793,57 @@ fun PermissionRow(
 }
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 fun SettingsScreen(
     onClose: () -> Unit
 ) {
     val context = LocalContext.current
     val prefs = context.getSharedPreferences("aura_prefs", android.content.Context.MODE_PRIVATE)
-    
+
     // Model source preference
     var modelSource by remember { mutableStateOf(
         ModelSource.valueOf(prefs.getString("model_source", ModelSource.ONLINE.name) ?: ModelSource.ONLINE.name)
     ) }
-    
+
     // Show onboarding on next launch
     var showOnboardingOnNextLaunch by remember { mutableStateOf(
         prefs.getBoolean("show_onboarding_next_launch", false)
     ) }
-    
+
+    // NIM key - stored in SharedPreferences (not committed to git)
+    var nimKey by remember { mutableStateOf(prefs.getString("nim_key", "") ?: "") }
+
     // NIM key status
-    val nimKeyExists = File(context.filesDir, "nim.key").exists()
-    
-    // Local models status
-    val localModelsDir = File(context.filesDir, "models")
+    val nimKeyExists = nimKey.isNotBlank()
+
+    // Local models status - use ModelFileManager's directory
+    val localModelsDir = ModelFileManager.modelsDir(context)
     val localModelsExist = localModelsDir.exists() && localModelsDir.listFiles()?.isNotEmpty() == true
-    
+
+    // Availability: ONLINE needs key, OFFLINE needs models, BOTH needs BOTH
+    val onlineAvailable = nimKeyExists
+    val offlineAvailable = localModelsExist
+    val bothAvailable = onlineAvailable && offlineAvailable
+
+    // If selected source becomes unavailable, switch to first available
+    LaunchedEffect(onlineAvailable, offlineAvailable, bothAvailable) {
+        val currentAvailable = when (modelSource) {
+            ModelSource.ONLINE -> onlineAvailable
+            ModelSource.OFFLINE -> offlineAvailable
+            ModelSource.BOTH -> bothAvailable
+        }
+        if (!currentAvailable) {
+            val firstAvailable = when {
+                onlineAvailable -> ModelSource.ONLINE
+                offlineAvailable -> ModelSource.OFFLINE
+                bothAvailable -> ModelSource.BOTH
+                else -> ModelSource.ONLINE
+            }
+            modelSource = firstAvailable
+            prefs.edit().putString("model_source", firstAvailable.name).apply()
+        }
+    }
+
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
@@ -879,18 +907,21 @@ fun SettingsScreen(
                 )
                 
                 Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    ModelSource.values().forEach { source ->
-                        val isSelected = (modelSource == source)
-                        val isAvailable = when (source) {
-                            ModelSource.ONLINE -> nimKeyExists
-                            ModelSource.OFFLINE -> localModelsExist
-                            ModelSource.BOTH -> nimKeyExists || localModelsExist
-                        }
-                        
-                        val itemEnabled = isAvailable
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    ModelSource.values().forEach { source ->
+                                        val isSelected = (modelSource == source)
+                                        val isAvailable = when (source) {
+                                            ModelSource.ONLINE -> onlineAvailable
+                                            ModelSource.OFFLINE -> offlineAvailable
+                                            ModelSource.BOTH -> bothAvailable
+                                        }
+
+                                        // Keep selected item enabled even if unavailable, so user can see status/fix it
+                                        // If ALL are unavailable, keep ONLINE enabled as default
+                                        val allUnavailable = !onlineAvailable && !offlineAvailable && !bothAvailable
+                                        val itemEnabled = isAvailable || isSelected || (allUnavailable && source == ModelSource.ONLINE)
                         
                         Card(
                             modifier = Modifier
@@ -995,51 +1026,69 @@ fun SettingsScreen(
                     }
                     
                     Switch(
-                        checked = showOnboardingNextLaunch,
-                        onCheckedChange = { checked ->
-                            showOnboardingNextLaunch = checked
-                            context.getSharedPreferences("aura_prefs", android.content.Context.MODE_PRIVATE)
-                                .edit()
-                                .putBoolean("show_onboarding_next_launch", checked)
-                                .apply()
-                        }
-                    )
-                }
-                
-                // NIM Key Status
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = "NIM API Key",
-                            style = Typography().bodyMedium,
-                            color = Color.White
-                        )
-                        Text(
-                            text = if (nimKeyExists) "Configured ✓" else "Not set - online models unavailable",
-                            style = Typography().bodySmall,
-                            color = if (nimKeyExists) Color(0xFF00E5FF) else Color.White.copy(alpha = 0.6f)
-                        )
-                    }
-                    
-                    if (!nimKeyExists) {
-                        OutlinedButton(
-                            onClick = {
-                                // Could open key management screen
-                            },
-                            modifier = Modifier.padding(start = 8.dp)
-                        ) {
-                            Text("Add Key")
-                        }
-                    }
-                }
-                
-                // Local Models Status
+                                            checked = showOnboardingNextLaunch,
+                                            onCheckedChange = { checked ->
+                                                showOnboardingNextLaunch = checked
+                                                context.getSharedPreferences("aura_prefs", android.content.Context.MODE_PRIVATE)
+                                                    .edit()
+                                                    .putBoolean("show_onboarding_next_launch", checked)
+                                                    .apply()
+                                            }
+                                        )
+                                    }
+
+                                    // NIM API Key input
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Text(
+                                            text = "NIM API Key",
+                                            style = Typography().titleMedium,
+                                            color = Color(0xFF00E5FF)
+                                        )
+                                        Text(
+                                            text = "Enter your NVIDIA NIM API key for online models",
+                                            style = Typography().bodySmall,
+                                            color = Color.White.copy(alpha = 0.6f)
+                                        )
+                                        var keyInput by remember { mutableStateOf(nimKey) }
+                                        TextField(
+                                            value = keyInput,
+                                            onValueChange = { newVal ->
+                                                keyInput = newVal
+                                                nimKey = newVal
+                                                prefs.edit().putString("nim_key", newVal).apply()
+                                            },
+                                            label = { Text("NIM API Key", style = Typography().bodyMedium, color = Color.White.copy(alpha = 0.6f)) },
+                                            singleLine = true,
+                                            modifier = Modifier.fillMaxWidth(),
+                                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                                            colors = TextFieldDefaults.textFieldColors(
+                                                containerColor = Color.White.copy(alpha = 0.05f),
+                                                unfocusedIndicatorColor = Color.White.copy(alpha = 0.3f),
+                                                focusedIndicatorColor = Color(0xFF00E5FF)
+                                            )
+                                        )
+                                        if (nimKeyExists) {
+                                            Text(
+                                                text = "Key saved ✓",
+                                                style = Typography().bodySmall,
+                                                color = Color(0xFF00E5FF)
+                                            )
+                                        }
+                                    }
+
+                                    // Divider
+                                    Divider(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 16.dp),
+                                        color = Color.White.copy(alpha = 0.2f),
+                                        thickness = 1.dp
+                                    )
+
+                                    // Local Models Status
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1054,7 +1103,7 @@ fun SettingsScreen(
                             color = Color.White
                         )
                         Text(
-                            text = if (localModelsExist) "Available ✓" else "Not found - copy to /data/data/com.aetheria.aura/files/models/",
+                            text = if (localModelsExist) "Available ✓" else "Not found - copy to external storage: /sdcard/Android/data/com.aetheria.aura/files/models/",
                             style = Typography().bodySmall,
                             color = if (localModelsExist) Color(0xFF00E5FF) else Color.White.copy(alpha = 0.6f)
                         )
