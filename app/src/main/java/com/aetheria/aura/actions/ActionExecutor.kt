@@ -84,9 +84,10 @@ object ActionExecutor {
         val name = action.name
         val body = action.body
         if (name.isBlank()) return "error"
-        val phoneNumber = findPhoneNumberByName(context, name)
+        val rawPhoneNumber = findPhoneNumberByName(context, name)
         val intent = Intent(Intent.ACTION_SENDTO)
-        if (phoneNumber != null) {
+        if (rawPhoneNumber != null) {
+            val phoneNumber = cleanPhoneNumberForSms(rawPhoneNumber)
             intent.data = Uri.parse("smsto:$phoneNumber")
             Log.d("AuraRouter", "SendText: to name='$name' phoneNumber='$phoneNumber' body='$body'")
         } else {
@@ -190,5 +191,14 @@ object ActionExecutor {
         } finally {
             cursor?.close()
         }
+    }
+
+    /**
+     * Cleans a phone number for use with smsto: URI.
+     * Removes spaces, dashes, and parentheses only. Preserves leading + and country code.
+     * Pure function with no Android dependencies for unit testing.
+     */
+    fun cleanPhoneNumberForSms(rawNumber: String): String {
+        return rawNumber.replace(Regex("[\\s\\-()]"), "")
     }
 }
