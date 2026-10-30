@@ -21,7 +21,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            val pm = packageManager
             AuraTheme {
                 var input by remember { mutableStateOf("") }
                 var focused by remember { mutableStateOf(false) }
@@ -34,9 +33,9 @@ class MainActivity : ComponentActivity() {
                     scope.launch {
                         phase = AuraMood.THINKING
                         try {
-                            val result = HermesClient.send(cmd)
+                            val result = HermesClient.send(this@MainActivity, cmd)
                             phase = AuraMood.ACTING
-                            val execResult = ActionExecutor.execute(result, pm)
+                            val execResult = ActionExecutor.execute(result, this@MainActivity)
                             delay(900)
                         } catch (e: Exception) { status = "Hermes unreachable" } finally { phase = AuraMood.IDLE }
                     }

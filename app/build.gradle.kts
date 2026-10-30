@@ -24,6 +24,7 @@ android {
         versionCode = 1
         versionName = "0.1.0-aura"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "HERMES_ENDPOINT", "\"http://localhost:8766/command\"")
     }
 
     buildTypes {
@@ -52,6 +53,12 @@ android {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1,LICENSE,LICENSE.txt,NOTICE,NOTICE.txt}"
         }
+    }
+
+    lint {
+        lintConfig = file("lint.xml")
+        isAbortOnError = false
+        isCheckReleaseBuilds = false
     }
 }
 

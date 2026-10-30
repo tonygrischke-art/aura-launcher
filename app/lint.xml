@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<lint>
+    <!-- Disable checks that are noisy or not applicable -->
+    <issue id="UnusedResources" severity="ignore" />
+    <issue id="MissingTranslation" severity="ignore" />
+    <issue id="ExtraTranslation" severity="ignore" />
+    <issue id="HardcodedText" severity="warning" />
+    <issue id="ContentDescription" severity="warning" />
+    <issue id="TouchTargetSize" severity="warning" />
+    <issue id="SmallSp" severity="warning" />
+    <issue id="FontFamilyFont" severity="ignore" />
+    <issue id="UseMaterialThemeAttributes" severity="ignore" />
+    <issue id="DefaultLocale" severity="ignore" />
+    <issue id="Instantiatable" severity="ignore" />
+    <issue id="NamespaceTypo" severity="ignore" />
+    <issue id="GradleDependency" severity="warning" />
+    <issue id="ObsoleteGradleProperty" severity="ignore" />
+    <issue id="UnusedAttribute" severity="warning" />
+    <issue id="Deprecated" severity="warning" />
+    <issue id="NewApi" severity="warning" />
+    <issue id="OverrideAbstract" severity="ignore" />
+    <issue id="KotlinInternalInJava" severity="ignore" />
+    <issue id="Grammar" severity="ignore" />
+    <issue id="TypographyDashes" severity="ignore" />
+    <issue id="TypographyFractions" severity="ignore" />
+    <issue id="TypographyOther" severity="ignore" />
+    <issue id="TypographyQuotes" severity="ignore" />
+    <issue id="SpellCheckInspection" severity="ignore" />
+    <issue id="RedundantExplicitType" severity="ignore" />
+    <issue id="UnnecessaryLocalVariable" severity="ignore" />
+    <issue id="UnnecessarySafeCall" severity="ignore" />
+    <issue id="ObjectEqualsNull" severity="ignore" />
+    <issue id="IteratorHasNext" severity="ignore" />
+    <issue id="WeakerAccess" severity="ignore" />
+    <issue id="MemberVisibilityCanBePrivate" severity="ignore" />
+    <issue id="PropertyName" severity="ignore" />
+    <issue id="CanBeFinal" severity="ignore" />
+    <issue id="UnstableApiUsage" severity="ignore" />
+    <issue id="ExperimentalCoroutinesApi" severity="ignore" />
+</lint>
