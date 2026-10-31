@@ -10,6 +10,8 @@ export JAVA_HOME PATH="$JAVA_HOME/bin:$PATH"
 PLATFORM=35          # targetSdk
 COMPILE_PLATFORM=36  # compile against Android 16 APIs (Live Updates)
 BT="$SDK/build-tools/35.0.0"
+NDK="${ANDROID_NDK_HOME:-$SDK/ndk/26.1.10909125}"
+CMAKE="$SDK/cmake/3.22.1/bin/cmake"
 ANDROID_JAR="$SDK/platforms/android-$COMPILE_PLATFORM/android.jar"
 VERSION_NAME="${VERSION_NAME:-0.1.0}"
 VERSION_CODE="${VERSION_CODE:-1}"
@@ -17,6 +19,34 @@ KS="${KEYSTORE:-$HOME/.android/hermes-mobile.keystore}"  # CI passes the release
 
 [ -f "$ANDROID_JAR" ] || { echo "missing $ANDROID_JAR (sdkmanager \"platforms;android-$COMPILE_PLATFORM\")"; exit 1; }
 [ -x "$BT/aapt2" ] || { echo "missing build-tools 35.0.0"; exit 1; }
+[ -x "$CMAKE" ] || { echo "missing cmake 3.22.1"; exit 1; }
+[ -d "$NDK" ] || { echo "missing NDK at $NDK"; exit 1; }
+
+# 0. Build native library (llama.cpp JNI)
+echo "Building native library..."
+rm -rf build/native
+mkdir -p build/native/arm64-v8a
+
+# Configure with CMake
+"$CMAKE" -S src/main/cpp -B build/native/arm64-v8a \
+    -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
+    -DANDROID_ABI=arm64-v8a \
+    -DANDROID_PLATFORM=android-26 \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DLLAMA_BUILD_COMMON=ON \
+    -DBUILD_SHARED_LIBS=ON \
+    -DGGML_BACKEND_DL=ON \
+    -DGGML_CPU_ALL_VARIANTS=ON \
+    -DGGML_LLAMAFILE=OFF \
+    -DCMAKE_C_FLAGS="-O3 -DNDEBUG" \
+    -DCMAKE_CXX_FLAGS="-O3 -DNDEBUG"
+
+# Build
+"$CMAKE" --build build/native/arm64-v8a --config Release -- -j$(nproc)
+
+# Copy built .so to jniLibs for APK packaging
+mkdir -p src/main/jniLibs/arm64-v8a
+cp build/native/arm64-v8a/libhermes-llama.so src/main/jniLibs/arm64-v8a/
 
 # 1. web UI → assets
 ( cd ../web && npx vite build >/dev/null )
@@ -51,7 +81,16 @@ javac -encoding UTF-8 -source 11 -target 11 -Xlint:-options -classpath "$ANDROID
 "$BT/d8" --min-api 26 --lib "$ANDROID_JAR" --output build/dex $(find build/classes -name '*.class')
 ( cd build/dex && zip -q -j ../unsigned.apk classes.dex )
 
-# 4. align + sign
+# 4. Add native libraries to APK
+cd build
+unzip -q unsigned.apk -d unsigned_apk
+mkdir -p unsigned_apk/lib/arm64-v8a
+cp ../src/main/jniLibs/arm64-v8a/libhermes-llama.so unsigned_apk/lib/arm64-v8a/
+cd unsigned_apk
+zip -q -r ../unsigned.apk .
+cd ../..
+
+# 5. align + sign
 [ -f "$KS" ] || { mkdir -p "$(dirname "$KS")"; keytool -genkeypair -keystore "$KS" -storepass hermesmobile -keypass hermesmobile \
   -alias hermes -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Hermes Mobile, O=omarqaterge" >/dev/null 2>&1; }
 "$BT/zipalign" -f -p 4 build/unsigned.apk build/aligned.apk
