@@ -17,7 +17,7 @@ if(DEFINED ANDROID_ABI)
     if(ANDROID_ABI STREQUAL "arm64-v8a")
         set(GGML_SYSTEM_ARCH "ARM")
         set(GGML_CPU_KLEIDIAI ON)
-        set(GGML_OPENMP ON)
+        set(GGML_OPENMP OFF)  # Per llama.cpp docs: OpenMP not supported in Android NDK
     elseif(ANDROID_ABI STREQUAL "x86_64")
         set(GGML_SYSTEM_ARCH "x86")
         set(GGML_CPU_KLEIDIAI OFF)

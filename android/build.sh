@@ -31,9 +31,10 @@ mkdir -p build/native/arm64-v8a
 "$CMAKE" -S src/main/cpp -B build/native/arm64-v8a \
     -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
     -DANDROID_ABI=arm64-v8a \
-    -DANDROID_PLATFORM=android-26 \
+    -DANDROID_PLATFORM=android-28 \
     -DCMAKE_BUILD_TYPE=Release \
     -DLLAMA_BUILD_COMMON=ON \
+    -DLLAMA_OPENSSL=OFF \
     -DBUILD_SHARED_LIBS=ON \
     -DGGML_BACKEND_DL=ON \
     -DGGML_CPU_ALL_VARIANTS=ON \

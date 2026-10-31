@@ -89,3 +89,46 @@ jobs:
       - run: tools/java-check.sh
       - run: tools/test_setup_lines.sh
       - run: tools/test_autostart.sh
+
+  android-native:
+    name: Android native build (arm64-v8a)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Set up Android SDK
+        run: |
+          CMDLINE_TOOLS_URL="https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip"
+          mkdir -p /usr/local/lib/android/sdk
+          cd /usr/local/lib/android/sdk
+          wget -q "$CMDLINE_TOOLS_URL" -O cmdline-tools.zip
+          unzip -q cmdline-tools.zip -d cmdline-tools
+          rm cmdline-tools.zip
+          mv cmdline-tools/cmdline-tools cmdline-tools/latest 2>/dev/null || true
+          export PATH=$PATH:/usr/local/lib/android/sdk/cmdline-tools/latest/bin
+          yes | sdkmanager --licenses --sdk_root=/usr/local/lib/android/sdk
+          sdkmanager "platforms;android-36" "build-tools;35.0.0" "cmake;3.22.1" "ndk;26.1.10909125" --sdk_root=/usr/local/lib/android/sdk
+          echo "ANDROID_HOME=/usr/local/lib/android/sdk" >> $GITHUB_ENV
+          echo "ANDROID_NDK_HOME=/usr/local/lib/android/sdk/ndk/26.1.10909125" >> $GITHUB_ENV
+      - name: Build APK with native library
+        run: |
+          cd android
+          chmod +x build.sh
+          ./build.sh
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hermes-mobile-apk
+          path: android/build/hermes-mobile.apk
+          retention-days: 7
+      - name: Upload native libraries
+        uses: actions/upload-artifact@v4
+        with:
+          name: hermes-mobile-native-libs
+          path: android/src/main/jniLibs/arm64-v8a/*.so
+          retention-days: 7
