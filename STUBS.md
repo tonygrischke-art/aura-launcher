@@ -27,10 +27,10 @@
 **Issue:** No `*Test*.kt` files found in project
 **Status:** MISSING
 
-### 6. Manifest: android:usesCleartextTraffic="true"
-**File:** `app/src/main/AndroidManifest.xml:31`
-**Issue:** Allows HTTP traffic; HermesClient uses HTTP. Should use HTTPS or configure network security config.
-**Status:** SECURITY ISSUE
+### 6. Manifest: android:usesCleartextTraffic="false" + network_security_config
+**File:** `app/src/main/AndroidManifest.xml:31`, `app/src/main/res/xml/network_security_config.xml`
+**Issue:** Was `usesCleartextTraffic="true"` — now set to `false`. Cleartext permitted only for `localhost` and `127.0.0.1` via `network_security_config.xml`. No CIDR entries (Android does not support CIDR in `<domain>`). Default Hermes endpoint remains `http://localhost:8766/command` (BuildConfig default + hardcoded fallback). Endpoint is NOT user-configurable at runtime — any non-localhost http:// host will be blocked by the platform.
+**Status:** FIXED
 
 ### 7. ActionExecutor - Package iteration on IO thread but loads labels synchronously
 **File:** `app/src/main/java/com/aetheria/aura/actions/ActionExecutor.kt:25-30`
@@ -41,8 +41,10 @@
 
 ## P1 - High (should fix before release)
 
-### 8. No network security config for cleartext traffic exception
-**Issue:** If HTTP is needed for local Hermes bridge, should use `network_security_config.xml` with domain-specific exception instead of global `usesCleartextTraffic`
+### 8. Network security config present
+**File:** `app/src/main/res/xml/network_security_config.xml`
+**Issue:** Was missing — now exists, scoped to `localhost` and `127.0.0.1` only with `cleartextTrafficPermitted="true"`. `usesCleartextTraffic="false"` globally.
+**Status:** FIXED
 
 ### 9. ProGuard rules are empty/default
 **File:** `app/proguard-rules.pro`
