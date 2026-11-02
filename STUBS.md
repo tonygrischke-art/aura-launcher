@@ -2,10 +2,10 @@
 
 ## P0 - Critical (blocks daily-driver use)
 
-### 1. HermesClient - Hardcoded localhost URL
-**File:** `app/src/main/java/com/aetheria/aura/net/HermesClient.kt:13`
-**Issue:** `const val AURA_HOST = "http://localhost:8766/command"` - won't work on device (needs Tailscale IP or configurable endpoint)
-**Status:** STUBBED
+### 1. HermesClient - Configurable endpoint via SharedPreferences
+**File:** `app/src/main/java/com/aetheria/aura/net/HermesClient.kt`
+**Issue:** Was `const val AURA_HOST = "http://localhost:8766/command"` hardcoded fallback. Now reads from SharedPreferences (`aura_settings` / `hermes_endpoint`) with `BuildConfig.HERMES_ENDPOINT` as first-run default. Provides `setEndpoint()` for the Settings screen and `isCleartextNonLocalhost()` for UI warnings. No hardcoded fallback remains.
+**Status:** FIXED
 
 ### 2. ActionExecutor - Doesn't actually launch apps
 **File:** `app/src/main/java/com/aetheria/aura/actions/ActionExecutor.kt:34-36`
