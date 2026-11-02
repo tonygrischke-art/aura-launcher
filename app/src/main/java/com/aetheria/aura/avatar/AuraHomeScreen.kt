@@ -41,6 +41,7 @@ fun AuraHomeScreen(
     onSubmit: () -> Unit,
     onFocusChange: (Boolean) -> Unit,
     onMic: () -> Unit,
+    onSettings: () -> Unit,
     status: String?,
     modifier: Modifier = Modifier,
 ) {
@@ -112,6 +113,23 @@ fun AuraHomeScreen(
             }
         }
         Spacer(Modifier.height(12.dp))
+
+        Box(
+            Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(AuraColors.Cyan.copy(alpha = 0.10f))
+                .clickable { onSettings() },
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "S",
+                color = AuraColors.Cyan,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+        Spacer(Modifier.height(24.dp))
     }
 }
 

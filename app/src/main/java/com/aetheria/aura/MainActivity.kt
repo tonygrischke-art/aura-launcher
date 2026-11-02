@@ -14,6 +14,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.aetheria.aura.net.HermesClient
 import com.aetheria.aura.actions.ActionExecutor
+import com.aetheria.aura.settings.SettingsScreen
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.rememberCoroutineScope
 
@@ -26,6 +27,7 @@ class MainActivity : ComponentActivity() {
                 var focused by remember { mutableStateOf(false) }
                 var phase by remember { mutableStateOf(AuraMood.IDLE) }
                 var status by remember { mutableStateOf<String?>(null) }
+                var showSettings by remember { mutableStateOf(false) }
                 val scope = rememberCoroutineScope()
                 fun submit() {
                     val cmd = input.trim(); if (cmd.isEmpty()) return
@@ -41,7 +43,11 @@ class MainActivity : ComponentActivity() {
                     }
                 }
                 val shown = if (phase != AuraMood.IDLE) phase else if (focused) AuraMood.LISTENING else AuraMood.IDLE
-                AuraHomeScreen(shown, input, { input = it }, { submit() }, { focused = it }, { /* mic: UI only */ }, status)
+                if (showSettings) {
+                    SettingsScreen(context = this@MainActivity, onBack = { showSettings = false })
+                } else {
+                    AuraHomeScreen(shown, input, { input = it }, { submit() }, { focused = it }, { /* mic: UI only */ }, { showSettings = true }, status)
+                }
             }
         }
     }
