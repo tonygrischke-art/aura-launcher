@@ -1,6 +1,7 @@
 package com.aetheria.aura.net
 
 import android.content.Context
+import android.content.SharedPreferences
 import com.aetheria.aura.actions.AuraAction
 import com.aetheria.aura.BuildConfig
 import kotlinx.coroutines.Dispatchers
@@ -13,13 +14,31 @@ import java.nio.charset.StandardCharsets
 
 object HermesClient {
 
-    /** Returns the Hermes bridge endpoint. Configure via buildConfigField in build.gradle.kts or override at runtime. */
-    private fun getEndpoint(context: Context): String {
-        // Priority: 1) Runtime override via shared prefs (not implemented yet), 2) BuildConfig, 3) Default for dev
-        return try {
-            BuildConfig.HERMES_ENDPOINT
+    private const val PREFS_NAME = "aura_settings"
+    private const val KEY_ENDPOINT = "hermes_endpoint"
+
+    /** Persist a user-chosen Hermes endpoint. */
+    fun setEndpoint(context: Context, endpoint: String) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_ENDPOINT, endpoint)
+            .apply()
+    }
+
+    /** Returns the persisted endpoint, or the BuildConfig default on first run. */
+    fun getStoredEndpoint(context: Context): String {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_ENDPOINT, null) ?: BuildConfig.HERMES_ENDPOINT
+    }
+
+    /** Returns true if the endpoint uses cleartext HTTP on a non-localhost host. */
+    fun isCleartextNonLocalhost(endpoint: String): Boolean {
+        if (!endpoint.startsWith("http://", ignoreCase = true)) return false
+        try {
+            val host = java.net.URL(endpoint).host.lowercase()
+            return host != "localhost" && host != "127.0.0.1"
         } catch (e: Exception) {
-            "http://localhost:8766/command"
+            return false
         }
     }
 
@@ -28,7 +47,7 @@ object HermesClient {
             var connection: HttpURLConnection? = null
             var result: AuraAction = AuraAction.Unknown
             try {
-                val endpoint = getEndpoint(context)
+                val endpoint = getStoredEndpoint(context)
                 val url = URL(endpoint)
                 connection = url.openConnection() as HttpURLConnection
                 connection.requestMethod = "POST"
