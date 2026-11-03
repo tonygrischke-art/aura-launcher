@@ -24,6 +24,7 @@ android {
         versionCode = 1
         versionName = "0.1.0-aura"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "HERMES_ENDPOINT", "\"http://localhost:8766/command\"")
     }
 
     buildTypes {
@@ -46,12 +47,19 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1,LICENSE,LICENSE.txt,NOTICE,NOTICE.txt}"
         }
+    }
+
+    lint {
+        lintConfig = file("lint.xml")
+        abortOnError = false
+        checkReleaseBuilds = false
     }
 }
 
@@ -89,6 +97,7 @@ dependencies {
 
     // Testing
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20231013")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")

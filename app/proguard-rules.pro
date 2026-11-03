@@ -19,3 +19,42 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Keep Compose runtime and UI classes
+-keep class androidx.compose.** { *; }
+-keep class androidx.compose.runtime.** { *; }
+-keep class androidx.compose.ui.** { *; }
+
+# Keep Kotlin metadata
+-keep class kotlin.Metadata { *; }
+-keepattributes RuntimeVisibleAnnotations,RuntimeInvisibleAnnotations
+
+# Keep BuildConfig for HermesClient endpoint
+-keep class com.aetheria.aura.BuildConfig { *; }
+
+# Keep AuraAction sealed class hierarchy for JSON parsing
+-keep class com.aetheria.aura.actions.AuraAction** { *; }
+
+# Keep ActionExecutor for runtime execution
+-keep class com.aetheria.aura.actions.ActionExecutor { *; }
+
+# Keep HermesClient for network calls
+-keep class com.aetheria.aura.net.HermesClient { *; }
+
+# Keep WakeWordService for foreground service
+-keep class com.aetheria.aura.wakeWord.WakeWordService { *; }
+
+# Keep BootReceiver for boot completion
+-keep class com.aetheria.aura.BootReceiver { *; }
+
+# Keep AuraApplication
+-keep class com.aetheria.aura.AuraApplication { *; }
+
+# Keep MainActivity and AuraHomeScreen
+-keep class com.aetheria.aura.MainActivity { *; }
+-keep class com.aetheria.aura.avatar.AuraHomeScreen { *; }
+-keep class com.aetheria.aura.avatar.AuraFigure { *; }
+-keep class com.aetheria.aura.avatar.AuraMood { *; }
+-keep class com.aetheria.aura.avatar.AvatarState { *; }
+-keep class com.aetheria.aura.avatar.AvatarRenderer { *; }
+-keep class com.aetheria.aura.avatar.OrbRenderer { *; }

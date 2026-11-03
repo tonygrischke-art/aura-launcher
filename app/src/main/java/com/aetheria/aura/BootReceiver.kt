@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import com.aetheria.aura.wakeWord.WakeWordService
 
 class BootReceiver : BroadcastReceiver() {
     companion object {
@@ -13,7 +14,8 @@ class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
             Log.i(TAG, "Boot completed, starting wake word service")
-            // TODO: Start WakeWordService here in step 3
+            val serviceIntent = Intent(context, WakeWordService::class.java)
+            context.startForegroundService(serviceIntent)
         }
     }
 }

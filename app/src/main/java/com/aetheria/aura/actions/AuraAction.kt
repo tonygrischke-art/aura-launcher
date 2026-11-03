@@ -27,7 +27,7 @@ sealed class AuraAction {
 
                 return when (action) {
                     "open_app" -> {
-                        val target = args?.getString("target") ?: ""
+                        val target = args?.optString("target") ?: ""
                         AuraAction.OpenApp(target)
                     }
                     else -> AuraAction.Unknown
