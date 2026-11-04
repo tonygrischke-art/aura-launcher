@@ -58,7 +58,6 @@ fun AuraHomeScreen(
     onSettings: () -> Unit,
     status: String?,
     messages: List<ChatMessage>,
-    onSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var now by remember { mutableStateOf(Date()) }
