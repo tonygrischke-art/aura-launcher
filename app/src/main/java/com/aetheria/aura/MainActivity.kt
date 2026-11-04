@@ -38,6 +38,7 @@ import com.aetheria.aura.router.AppIndex
 import com.aetheria.aura.router.CommandRouter
 import com.aetheria.aura.router.AuraActionRoute
 import com.aetheria.aura.router.AppIndexManager
+import com.aetheria.aura.settings.SettingsScreen
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.rememberCoroutineScope
 import com.aetheria.aura.actions.AuraAction
@@ -161,10 +162,8 @@ class MainActivity : ComponentActivity() {
                 var phase by remember { mutableStateOf(currentPhase) }
                 var status by remember { mutableStateOf<String?>(null) }
                 val messages = messagesState
-                val scope = rememberCoroutineScope()
-                
-                // Settings screen state
                 var showSettings by remember { mutableStateOf(false) }
+                val scope = rememberCoroutineScope()
                 
                 // Onboarding state
                 var showOnboarding by remember { mutableStateOf(!firstRunComplete) }
@@ -187,14 +186,13 @@ class MainActivity : ComponentActivity() {
                         requestPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                     }
                 }
-
                 fun stopListening() {
                     speechRecognizer?.stopListening()
                     isListening = false
                 }
 
                 val shown = if (phase != AuraMood.IDLE) phase else if (focused) AuraMood.LISTENING else AuraMood.IDLE
-                
+
                 // Show onboarding overlay if needed
                 if (showOnboarding) {
                     PermissionOnboardingScreen(
