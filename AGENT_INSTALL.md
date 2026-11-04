@@ -1,0 +1,289 @@
+# Install Hermes on an Android phone: instructions for an AI agent
+
+**Human:** plug your phone into your computer and give your coding agent (Claude Code, Codex, Cursor, Gemini CLI…) this prompt:
+
+```text
+Read https://raw.githubusercontent.com/omarqaterge/hermes-mobile-app/main/AGENT_INSTALL.md and follow it to set up Hermes on my Android phone.
+```
+
+Everything below is for the agent.
+
+---
+
+## Your job
+
+Set up, on the user's Android phone, from their computer (macOS, Windows or Linux) over `adb`:
+
+1. **Termux** (a Linux terminal app) with **Debian** inside it (proot-distro; on a rooted phone, chroot-distro if the user asks
+   for it: run the setup script with `HM_DISTRO=chroot`, and the user taps Grant when the root manager asks about Termux).
+2. **Hermes Agent** (github.com/NousResearch/hermes-agent) inside Debian, with a model the user chooses.
+3. **Hermes Mobile** (this repo): the Hermes plugin, a supervisor script, and the Android app.
+
+You drive the phone with `adb`: install apps, change a few settings, and type commands into Termux with
+`adb shell input text`. The phone-side work is one script, [`phone/bootstrap.sh`](phone/bootstrap.sh), which reports its
+progress to Android's log, so you can follow it with `adb logcat` without seeing the screen.
+
+**Total time:** 20-45 minutes, mostly waiting for downloads and builds on the phone.
+
+### Rules
+
+- Tell the user what you are about to do before each numbered step, in one line. Don't ask "continue?" between steps.
+- **Ask first** before: uninstalling anything, changing an existing Termux install, or anything not in this file.
+- **API keys:** ask the user for the key in chat, use it only in the one command in step 7 (or `HM_KEY`), and never repeat it, write it to a
+  file on the computer, or put it in a URL.
+- The phone must stay **unlocked with Termux in front** while you type into it. If a typed command doesn't show up in the log,
+  check the screen first (`adb shell dumpsys window | grep mCurrentFocus`) before retrying.
+- On **Windows**, run the commands in PowerShell; they work as written (use `curl.exe`, not `curl`, which is an alias there).
+- When something fails, read the log (step 6 says how), fix the cause, and re-run: every step is safe to repeat.
+
+## Fast path: the setup script
+
+Steps 1-9 below are automated in one script. Use it first; fall back to the manual steps only for the step it fails on.
+
+1. Do step 2's "Ask the user to" part (USB debugging, Allow prompt). The script waits for the phone.
+2. Ask the user how they pay for a model (step 7): a **subscription** (ChatGPT, Claude, Grok, Nous Portal) or an **API key**.
+   Subscription: use `HM_SKIP_MODEL=1`; they sign in from the app when it opens. API key: ask for the provider, model id and key.
+3. Run it **in the background** (it takes 20-45 minutes, longer than most tool timeouts), with the answers in environment variables:
+
+   macOS / Linux:
+
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/omarqaterge/hermes-mobile-app/main/tools/setup-phone.sh -o setup-phone.sh
+   HM_PROVIDER=openrouter HM_MODEL=<model id> HM_KEY_NAME=OPENROUTER_API_KEY HM_KEY=<key> bash setup-phone.sh > setup.log 2>&1
+   ```
+
+   Windows (PowerShell):
+
+   ```powershell
+   irm https://raw.githubusercontent.com/omarqaterge/hermes-mobile-app/main/tools/setup-phone.ps1 -OutFile setup-phone.ps1
+   $env:HM_PROVIDER='openrouter'; $env:HM_MODEL='<model id>'; $env:HM_KEY_NAME='OPENROUTER_API_KEY'; $env:HM_KEY='<key>'
+   powershell -ExecutionPolicy Bypass -File setup-phone.ps1 *> setup.log
+   ```
+
+   Subscription, or no key yet? Use `HM_SKIP_MODEL=1` instead (the other `HM_` variables aren't needed): the app opens on
+   **Connect Hermes to a model** the first time.
+4. Read `setup.log` every minute or so. It prints `1/9` … `9/9`, the phone-side progress (`STEP …`), and ends with
+   `Done.` or `ERROR: …`. On an error, fix the cause (the matching step below explains it; a screenshot of Termux is saved
+   in `~/.hermes-mobile-setup/termux-error.png`) and run the script again: finished parts are skipped.
+5. Finish with step 9 (ask the user to say hi, tell them the notes).
+
+## 1. Get `adb` on the computer
+
+Check `adb version`. If it is missing:
+
+| OS | Install |
+|---|---|
+| macOS | `brew install android-platform-tools` (or the zip below) |
+| Linux | `sudo apt install adb` / `sudo dnf install android-tools` / `sudo pacman -S android-tools` (or the zip) |
+| Windows | `winget install Google.PlatformTools` (or the zip) |
+| Any | Download https://dl.google.com/android/repository/platform-tools-latest-{darwin,linux,windows}.zip, unzip, use `platform-tools/adb` |
+
+## 2. Connect the phone
+
+Ask the user to:
+
+1. Open **Settings → About phone** and tap **Build number** 7 times (on Xiaomi: **MIUI/OS version**) to unlock Developer options.
+2. In **Developer options** turn on **USB debugging**. On **Xiaomi/HyperOS** also turn on **Install via USB** and
+   **USB debugging (Security settings)**; without the latter, typing into Termux fails with `INJECT_EVENTS` errors.
+3. Plug the phone in and tap **Allow** on the "Allow USB debugging?" prompt (tick "Always allow").
+
+Then `adb devices` must show one device as `device` (`unauthorized` = the prompt wasn't accepted yet; nothing listed = try another
+cable/port). If several are listed, pick one and pass `-s <serial>` to every adb command (or set `ANDROID_SERIAL`).
+
+No cable? Android 11+: Developer options → **Wireless debugging** → *Pair device with pairing code*, then
+`adb pair <ip:port> <code>` and `adb connect <ip:port>` (the port on the Wireless debugging screen, not the pairing one). Why: Android's own wireless debugging lets Shizuku start itself on the phone without root; it is local only.
+
+Check the phone fits:
+
+```bash
+adb shell getprop ro.product.cpu.abi
+adb shell getprop ro.build.version.sdk
+adb shell df -h /data
+```
+
+Needs `arm64-v8a`, SDK ≥ 26 (Android 8), and at least **6 GB** free. Stop and tell the user if not.
+
+## 3. Install Termux, Termux:API, Termux:Boot and Shizuku
+
+All four are needed: Termux runs Hermes, Termux:API lets Hermes use the phone (battery, location, clipboard, notifications, SMS…),
+Termux:Boot starts Hermes after a reboot, and Shizuku gives Hermes adb-level access (screen, taps, apps, logs) **without root**.
+Check what is there: `adb shell pm list packages | grep -E 'com.termux|moe.shizuku'`.
+
+- **Not installed:** download the current builds from F-Droid and install them. Find each version code with
+  `https://f-droid.org/api/v1/packages/<package>` (field `suggestedVersionCode`), then:
+
+  ```bash
+  curl -fL -o termux.apk https://f-droid.org/repo/com.termux_<suggestedVersionCode>.apk
+  curl -fL -o termux-api.apk https://f-droid.org/repo/com.termux.api_<its suggestedVersionCode>.apk
+  curl -fL -o termux-boot.apk https://f-droid.org/repo/com.termux.boot_<its suggestedVersionCode>.apk
+  curl -fL -o shizuku.apk https://github.com/RikkaApps/Shizuku/releases/download/v13.6.0/shizuku-v13.6.0.r1086.2650830c-release.apk
+  adb install termux.apk && adb install termux-api.apk && adb install termux-boot.apk && adb install shizuku.apk
+  ```
+
+  (Termux is ~110 MB.) Termux:Boot only works after it was opened once: `adb shell am start -n com.termux.boot/.BootActivity`.
+- **Already installed:** check `adb shell dumpsys package com.termux | grep versionName`. 0.118 or newer is fine, use it as is.
+  Older (e.g. 0.101 from the Play Store) is broken: ask the user before uninstalling it, because that deletes everything in it.
+  Termux:API and Termux:Boot must come from the same source as Termux (F-Droid with F-Droid), or Android refuses to install them.
+
+## 4. Prepare Android
+
+```bash
+adb shell svc power stayon true
+adb shell cmd appops set com.termux RUN_ANY_IN_BACKGROUND allow
+adb shell dumpsys deviceidle whitelist +com.termux
+```
+
+Keeps the screen on during the install (undone in step 9) and stops Android from killing Termux in the background.
+
+Give Termux the files permission (Hermes reads and saves files through it), start Shizuku the way its own *Start by connecting
+to a computer* does, and let Shizuku restart itself after a reboot (Android 13+, once the user starts it via Wireless debugging):
+
+```bash
+adb shell pm grant com.termux android.permission.READ_EXTERNAL_STORAGE
+adb shell pm grant com.termux android.permission.WRITE_EXTERNAL_STORAGE
+adb shell 'p=$(pm path moe.shizuku.privileged.api | head -1 | cut -d: -f2); "$(dirname "$p")/lib/arm64/libshizuku.so"'
+adb shell pm grant moe.shizuku.privileged.api android.permission.WRITE_SECURE_SETTINGS
+adb shell ps -A -o NAME | grep -x shizuku_server    # prints the name when Shizuku runs
+```
+
+Android 12+ also kills apps with "too many" child processes ("[Process completed (signal 9)]" in Termux), which breaks the
+install. Turn that off (SDK ≥ 31):
+
+```bash
+adb shell device_config set_sync_disabled_for_tests persistent
+adb shell device_config put activity_manager max_phantom_processes 2147483647
+adb shell settings put global settings_enable_monitor_phantom_procs false
+```
+
+(The last line only exists on Android 14+; an error from it on older versions is fine.)
+
+## 5. Start Termux and run the installer
+
+Open Termux once so it unpacks itself (~30 s, needs internet):
+
+```bash
+adb shell am start -n com.termux/.app.TermuxActivity
+```
+
+**How to type into Termux.** `adb shell input text` types into whatever is in front. Spaces must be written as `%s`, and the
+whole text goes in single quotes inside double quotes so the phone's shell passes `&&`, `|`, `$` through untouched. Avoid `'`
+and `%` in typed text. Press Enter with `adb shell input keyevent 66`. Example:
+
+```bash
+adb shell "input text 'echo%shello%s&&%sls'"
+adb shell input keyevent 66
+```
+
+**Wait until Termux is ready**: clear the log, type a probe, and check it arrived; repeat every 10 s for up to 3 minutes:
+
+```bash
+adb logcat -c
+adb shell "input text '/system/bin/log%s-t%shmsetup%sready'"
+adb shell input keyevent 66
+adb logcat -d -s 'hmsetup:*'
+```
+
+Once `ready` shows up, type the installer (one line):
+
+```bash
+adb shell "input text 'curl%s-fsSL%shttps://raw.githubusercontent.com/omarqaterge/hermes-mobile-app/main/phone/bootstrap.sh%s-o%shm.sh%s&&%sHM_NO_APK=1%sbash%shm.sh'"
+adb shell input keyevent 66
+```
+
+`HM_NO_APK=1` keeps `hm.sh` from opening Android's installer on the phone at the end (that is the phone-only route's last step):
+you install the app yourself over adb in step 8. It also skips the installer's own child-process step, which you already did
+over adb above.
+
+## 6. Follow the installer
+
+```bash
+adb logcat -d -s 'hmsetup:*'
+```
+
+Run that every 30-60 s (`-d` prints and exits; don't leave `adb logcat` streaming). Lines look like `HMSETUP STEP <name> …`.
+Steps: `packages` → `debian` → `hermes` (the long one, 10-30 min) → `plugin` → `start`, then **`HMSETUP DONE`**.
+
+During `plugin` (`HMSETUP phone: …` lines), Shizuku asks on the phone whether Termux may use it: ask the user to tap **Allow all
+the time** (the installer waits up to a minute). `HMSETUP TODO …` lines just before `DONE` name what Hermes still can't reach
+(files, Termux:API, Shizuku) and how to fix it; fix it and re-run `bash hm.sh`.
+
+**`HMSETUP FAIL <step> (line N)`:** the real error is on the Termux screen. Read it with a screenshot
+(`adb exec-out screencap -p > screen.png`), or scroll back in Termux. Common causes:
+
+| Failure | Fix |
+|---|---|
+| any step, "Could not resolve host" / timeouts | Phone has no internet, or a flaky mirror: type `termux-change-repo`, pick another mirror, re-run `bash hm.sh` |
+| `[Process completed (signal 9)]` | Phantom process killer: do the step 4 commands, open a new Termux session (`exit`, reopen), re-run `bash hm.sh` |
+| `hermes`, "bootstrap Python lookup failed" | proot quirk; `hm.sh` already retries once with a workaround. If it still fails, re-run `bash hm.sh` |
+| `hermes`, `cpython-…-linux-android` / "Target triple not supported" | Debian is using Termux's Python: check `/etc/profile.d/zz-no-termux-path.sh` exists in Debian (hm.sh writes it), then re-run |
+| `hermes`, exit 132 / "Illegal instruction" | The CPU lacks an instruction a library needs. Seen only on the Android emulator on Apple Silicon, not on phones |
+| `hermes`, anything else | Hermes's own installer failed. The output above names the stage; full log in Debian at `/root/.hermes/logs/install.log`. Fix it inside Debian (`proot-distro login debian`, or `chroot-distro login debian` with `HM_DISTRO=chroot`), then re-run `bash hm.sh` |
+| `start` (dashboard not answering) | Look at `~/logs/dashboard.log` in Termux (`tail -50 ~/logs/dashboard.log`) |
+
+To re-run, type `bash hm.sh` + Enter. It skips what is done.
+
+## 7. Choose the model
+
+Ask the user how they want to pay for the model:
+
+- **A subscription** (ChatGPT Plus / Pro or Codex, Claude Pro / Max, SuperGrok / X Premium+, Nous Portal): skip this step. When the
+  app first opens it shows **Connect Hermes to a model**, where the user signs in themselves (ChatGPT, Claude, Grok and Nous in
+  the app; Claude can also use Termux with Hermes's own `hermes auth add anthropic`). Never handle their account login yourself.
+- **An API key:** ask which provider and for the key. Easy default: **OpenRouter** (one key, every model,
+  https://openrouter.ai/keys). Others: `anthropic` (`ANTHROPIC_API_KEY`), `openai` (`OPENAI_API_KEY`), `gemini`
+  (`GEMINI_API_KEY`, has a free tier), `deepseek` (`DEEPSEEK_API_KEY`). Ask the user which model they want; ids are the
+  provider's own (OpenRouter lists them at https://openrouter.ai/models). Then type (with the real values, `<model>` included):
+
+```bash
+adb logcat -c
+adb shell "input text 'bash%shm.sh%smodel%sopenrouter%s<model>%sOPENROUTER_API_KEY=<key>'"
+adb shell input keyevent 66
+```
+
+Wait for `HMSETUP MODEL SET` in the log. Then wipe the key from the screen and Termux's history:
+
+```bash
+adb shell "input text 'history%s-c%s&&%sclear'"
+adb shell input keyevent 66
+```
+
+The user can change all of this later in the app: Settings → Subscriptions & accounts / API keys / Default models.
+
+## 8. Install the app
+
+```bash
+curl -fL -o hermes-mobile.apk https://github.com/omarqaterge/hermes-mobile-app/releases/latest/download/hermes-mobile.apk
+adb install -r hermes-mobile.apk
+adb shell pm grant com.omarqaterge.hermesmobile com.termux.permission.RUN_COMMAND
+adb shell pm grant com.omarqaterge.hermesmobile android.permission.POST_NOTIFICATIONS
+adb shell dumpsys deviceidle whitelist +com.omarqaterge.hermesmobile
+adb shell am start -n com.omarqaterge.hermesmobile/.MainActivity
+```
+
+`INSTALL_FAILED_UPDATE_INCOMPATIBLE` means an older self-built copy is installed: ask the user before uninstalling it
+(`adb uninstall com.omarqaterge.hermesmobile`).
+
+## 9. Check it works, then clean up
+
+1. The app should show the chat screen within a minute, not "Hermes is offline". If it does show offline, it opens a
+   **Setup check** screen by itself: take a screenshot and fix what it marks red. Otherwise open it (tap the dot next to the
+   chat title → Setup check) and check the last three rows: files, Termux:API, Shizuku.
+2. If step 7 was skipped, the app shows **Connect Hermes to a model**: let the user sign in or paste a key there and pick a model.
+3. Ask the user to send "hi" in the app. A streamed answer means the install is complete.
+4. Put the phone back:
+
+   ```bash
+   adb shell svc power stayon false
+   ```
+
+5. Tell the user, briefly:
+   - On **Xiaomi/HyperOS** also turn on **Autostart** for Termux and Hermes Mobile (Settings → Apps), or Android may still stop them.
+   - The **Termux notification must stay**: Hermes runs inside Termux.
+   - **Shizuku stops when the phone restarts.** Without root: start it once in Shizuku → *Start via Wireless debugging* (pair
+     once); on Android 13+ it then restarts by itself on Wi-Fi. Rooted: Shizuku → *Start*, and it restarts by itself. The app's
+     Setup check shows when it isn't running. No root is needed for anything.
+   - Hermes Mobile can be the phone's assistant (long-press power opens voice chat): Settings → Default apps → Digital assistant app.
+   - Updating later: in Termux, `bash hm.sh` (phone side) and install the newer APK from the Releases page.
+6. Delete the downloaded `.apk` files from the computer.
+
+Report to the user what was installed, the model, and anything you skipped or that didn't work.

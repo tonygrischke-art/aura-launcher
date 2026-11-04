@@ -18,3 +18,14 @@ Thumbs.db
 # Reports
 *.html
 .kotlin/
+
+# Block6 / native
+node_modules/
+web/dist/
+android/build/
+android/assets/www/
+android/assets/phone/
+__pycache__/
+*.pyc
+*.keystore
+out/
