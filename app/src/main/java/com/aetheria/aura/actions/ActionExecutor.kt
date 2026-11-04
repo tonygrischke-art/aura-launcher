@@ -8,6 +8,8 @@ import android.database.Cursor
 import android.net.Uri
 import android.provider.ContactsContract
 import android.util.Log
+import com.aetheria.aura.actions.AuraAction.OpenApp
+import com.aetheria.aura.net.HermesClient
 import com.aetheria.aura.router.AppIndex
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

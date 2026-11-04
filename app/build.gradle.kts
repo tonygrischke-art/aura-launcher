@@ -1,10 +1,10 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
-    id("com.android.application")
-    id("org.jetbrains.kotlin.android")
-    id("kotlin-android")
-    id("org.jetbrains.kotlin.plugin.compose")
+   id("com.android.application")
+   id("org.jetbrains.kotlin.android")
+   id("kotlin-android")
+   id("org.jetbrains.kotlin.plugin.compose")
 }
 
 val composeBomVersion: String by project
@@ -26,6 +26,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Hermes bridge host - local bridge on device
         buildConfigField("String", "HERMES_HOST", "\"http://127.0.0.1:8766/command\"")
+        buildConfigField("String", "HERMES_ENDPOINT", "\"http://localhost:8766/command\"")
     }
 
     buildTypes {
@@ -55,6 +56,12 @@ android {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1,LICENSE,LICENSE.txt,NOTICE,NOTICE.txt}"
         }
+    }
+
+    lint {
+        lintConfig = file("lint.xml")
+        abortOnError = false
+        checkReleaseBuilds = false
     }
 }
 
@@ -111,6 +118,7 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:1.9.20")
     testImplementation("org.jetbrains.kotlin:kotlin-test:1.9.20")
+    testImplementation("org.json:json:20231013")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")

@@ -1,7 +1,19 @@
+# Gradle
 .gradle/
 build/
 local.properties
-*.apk
 *.iml
+*.apk
+
+# IDE
 .idea/
+*.iml
+*.iws
+*.ipr
+
+# OS
 .DS_Store
+Thumbs.db
+
+# Reports
+*.html
