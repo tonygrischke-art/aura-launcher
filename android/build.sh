@@ -34,6 +34,7 @@ mkdir -p build/native/arm64-v8a
     -DANDROID_PLATFORM=android-28 \
     -DCMAKE_BUILD_TYPE=Release \
     -DLLAMA_BUILD_COMMON=ON \
+    -DLLAMA_BUILD_MTMD=ON \
     -DLLAMA_OPENSSL=OFF \
     -DBUILD_SHARED_LIBS=ON \
     -DGGML_BACKEND_DL=ON \
@@ -48,6 +49,7 @@ mkdir -p build/native/arm64-v8a
 # Copy built .so to jniLibs for APK packaging
 mkdir -p src/main/jniLibs/arm64-v8a
 cp build/native/arm64-v8a/libhermes-llama.so src/main/jniLibs/arm64-v8a/
+cp -a build/native/arm64-v8a/libmtmd.so* src/main/jniLibs/arm64-v8a/
 
 # 1. web UI → assets
 ( cd ../web && npx vite build >/dev/null )
