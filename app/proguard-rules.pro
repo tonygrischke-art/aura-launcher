@@ -58,3 +58,6 @@
 -keep class com.aetheria.aura.avatar.AvatarState { *; }
 -keep class com.aetheria.aura.avatar.AvatarRenderer { *; }
 -keep class com.aetheria.aura.avatar.OrbRenderer { *; }
+# JNI: the C++ side calls these by name
+-keep class com.aetheria.aura.llm.LocalLlm { *; }
+-keep class com.aetheria.aura.llm.LocalLlm$GenerateCallback { *; }

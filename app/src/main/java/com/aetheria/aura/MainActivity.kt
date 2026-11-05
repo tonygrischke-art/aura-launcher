@@ -292,21 +292,34 @@ class MainActivity : ComponentActivity() {
                                                 prefs.getString("model_source", ModelSource.ONLINE.name) ?: ModelSource.ONLINE.name
                                             )
                                             
-                                            // If OFFLINE or BOTH selected, try local first (placeholder for now)
+                                            // OFFLINE or BOTH: run the on-device model first; BOTH falls back to NIM on failure.
                                             if (modelSource == ModelSource.OFFLINE || modelSource == ModelSource.BOTH) {
-                                                // TODO: Implement local GGUF inference with llama.cpp
-                                                // For now, show info and fall through to NIM if BOTH
-                                                if (modelSource == ModelSource.OFFLINE) {
-                                                    runOnUiThread { 
-                                                        addMessageInternal(ChatMessage.Role.SYSTEM, "Offline mode selected but local inference not yet implemented. Falling back to online...") 
-                                                    }
-                                                } else {
-                                                    runOnUiThread { 
-                                                        addMessageInternal(ChatMessage.Role.SYSTEM, "Trying local model first (not yet implemented), will fallback to NIM...") 
+                                                val localId = System.nanoTime()
+                                                val history = messagesState.value
+                                                    .filter { it.role != ChatMessage.Role.SYSTEM && it.content.isNotBlank() }
+                                                    .map { (if (it.role == ChatMessage.Role.USER) "user" else "assistant") to it.content }
+                                                runOnUiThread {
+                                                    messagesState.value = ArrayList(messagesState.value).apply {
+                                                        add(ChatMessage(id = localId, role = ChatMessage.Role.AURA, content = ""))
                                                     }
                                                 }
+                                                val sb = StringBuilder()
+                                                val localStart = System.currentTimeMillis()
+                                                val localErr = com.aetheria.aura.llm.LocalLlm.chat(activity.applicationContext, history, 512) { piece ->
+                                                    sb.append(piece)
+                                                    val text = sb.toString()
+                                                    runOnUiThread { setMessageContent(localId, text) }
+                                                }
+                                                Log.d("AuraRouter", "local inference done err=$localErr chars=${sb.length} ms=${System.currentTimeMillis() - localStart}")
+                                                if (localErr == null) return@launch
+                                                runOnUiThread { removeMessage(localId) }
+                                                if (modelSource == ModelSource.OFFLINE) {
+                                                    addMessageInternal(ChatMessage.Role.SYSTEM, "Local model failed: $localErr")
+                                                    return@launch
+                                                }
+                                                addMessageInternal(ChatMessage.Role.SYSTEM, "Local model unavailable ($localErr); using NIM...")
                                             }
-                                            
+
                                             // Use NIM (online) for now
                                             val startTime = System.currentTimeMillis()
                                             var firstToken = false
@@ -387,6 +400,17 @@ class MainActivity : ComponentActivity() {
                 runOnUiThread { currentPhase = AuraMood.IDLE }
             }
         }
+    }
+
+    // Replace-the-list updates so Compose sees a new value (in-place ArrayList mutation does not notify).
+    private fun setMessageContent(id: Long, content: String) {
+        val list = ArrayList(messagesState.value)
+        val i = list.indexOfFirst { it.id == id }
+        if (i >= 0) { list[i] = list[i].copy(content = content); messagesState.value = list }
+    }
+
+    private fun removeMessage(id: Long) {
+        messagesState.value = ArrayList(messagesState.value.filter { it.id != id })
     }
 
     private fun addMessageInternal(role: ChatMessage.Role, content: String) {
