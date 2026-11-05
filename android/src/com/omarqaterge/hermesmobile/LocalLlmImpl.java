@@ -17,7 +17,7 @@ public final class LocalLlmImpl {
 
     // Native methods (must match JNI signatures exactly)
     private static native void nativeInit(String libDir);
-    private static native boolean nativeLoad(String modelPath, int nCtx);
+    private static native boolean nativeLoad(String modelPath, String mmprojPath, int nCtx);
     private static native void nativeUnload();
     private static native void nativeAbort();
     private static native void nativeGenerate(String prompt, int maxTokens, float temperature, GenerateCallback callback);
@@ -44,13 +44,18 @@ public final class LocalLlmImpl {
         }
     }
 
-    /** Load a GGUF model file. Must be called before generate(). */
-    public static boolean loadModel(File modelFile, int nCtx) {
+    /** Load a GGUF model file with its multimodal projector. Must be called before generate(). */
+    public static boolean loadModel(File modelFile, File mmprojFile, int nCtx) {
         synchronized (sLock) {
             if (!modelFile.exists()) {
                 return false;
             }
-            boolean ok = nativeLoad(modelFile.getAbsolutePath(), nCtx);
+            if (mmprojFile != null && !mmprojFile.exists()) {
+                return false;
+            }
+            boolean ok = nativeLoad(modelFile.getAbsolutePath(),
+                    mmprojFile != null ? mmprojFile.getAbsolutePath() : "",
+                    nCtx);
             sLoaded = ok;
             return ok;
         }

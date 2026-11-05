@@ -6,6 +6,7 @@
 #include <llama.h>
 #include <common/sampling.h>
 #include <common/common.h>
+#include <mtmd.h>
 
 #define LOG_TAG "HermesLlama"
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
@@ -15,6 +16,7 @@
 static llama_model *g_model = nullptr;
 static llama_context *g_ctx = nullptr;
 static common_sampler *g_sampler = nullptr;
+static mtmd_context *g_mtmd = nullptr;
 static std::mutex g_mutex;
 static volatile bool g_abort = false;
 
@@ -115,7 +117,7 @@ Java_com_omarqaterge_hermesmobile_LocalLlmImpl_nativeInit(JNIEnv *env, jclass cl
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
-Java_com_omarqaterge_hermesmobile_LocalLlmImpl_nativeLoad(JNIEnv *env, jclass clazz, jstring modelPath, jint nCtx) {
+Java_com_omarqaterge_hermesmobile_LocalLlmImpl_nativeLoad(JNIEnv *env, jclass clazz, jstring modelPath, jstring mmprojPath, jint nCtx) {
     std::lock_guard<std::mutex> lock(g_mutex);
 
     if (g_ctx) {
@@ -130,9 +132,14 @@ Java_com_omarqaterge_hermesmobile_LocalLlmImpl_nativeLoad(JNIEnv *env, jclass cl
         common_sampler_free(g_sampler);
         g_sampler = nullptr;
     }
+    if (g_mtmd) {
+        mtmd_free(g_mtmd);
+        g_mtmd = nullptr;
+    }
 
     std::string path = jstringToString(env, modelPath);
-    LOGI("nativeLoad: path=%s, nCtx=%d", path.c_str(), nCtx);
+    std::string mmproj = jstringToString(env, mmprojPath);
+    LOGI("nativeLoad: model=%s, mmproj=%s, nCtx=%d", path.c_str(), mmproj.c_str(), nCtx);
 
     llama_model_params model_params = llama_model_default_params();
     model_params.n_gpu_layers = 0; // CPU only
@@ -142,6 +149,17 @@ Java_com_omarqaterge_hermesmobile_LocalLlmImpl_nativeLoad(JNIEnv *env, jclass cl
         LOGE("Failed to load model from %s", path.c_str());
         return JNI_FALSE;
     }
+
+    // Load mmproj (multimodal projector) via libmtmd
+    mtmd_context_params mtmd_params = mtmd_context_params_default();
+    g_mtmd = mtmd_init_from_file(mmproj.c_str(), g_model, mtmd_params);
+    if (!g_mtmd) {
+        LOGE("Failed to load mmproj from %s", mmproj.c_str());
+        llama_model_free(g_model);
+        g_model = nullptr;
+        return JNI_FALSE;
+    }
+    LOGI("mmproj loaded successfully");
 
     llama_context_params ctx_params = llama_context_default_params();
     ctx_params.n_ctx = nCtx;
@@ -153,19 +171,23 @@ Java_com_omarqaterge_hermesmobile_LocalLlmImpl_nativeLoad(JNIEnv *env, jclass cl
     g_ctx = llama_new_context_with_model(g_model, ctx_params);
     if (!g_ctx) {
         LOGE("Failed to create context");
+        mtmd_free(g_mtmd);
+        g_mtmd = nullptr;
         llama_model_free(g_model);
         g_model = nullptr;
         return JNI_FALSE;
     }
 
-    // Initialize sampler with default params
+    // Initialize sampler with thinking disabled by default, temperature 0.1 for tool calls
     common_params_sampling sampler_params;
-    sampler_params.temp = 0.8f;
+    sampler_params.temp = 0.1f;
     sampler_params.top_p = 0.95f;
     sampler_params.top_k = 40;
     g_sampler = common_sampler_init(g_model, sampler_params);
     if (!g_sampler) {
         LOGE("Failed to create sampler");
+        mtmd_free(g_mtmd);
+        g_mtmd = nullptr;
         llama_free(g_ctx);
         g_ctx = nullptr;
         llama_model_free(g_model);
@@ -173,7 +195,7 @@ Java_com_omarqaterge_hermesmobile_LocalLlmImpl_nativeLoad(JNIEnv *env, jclass cl
         return JNI_FALSE;
     }
 
-    LOGI("Model loaded successfully");
+    LOGI("Model loaded successfully (thinking disabled, temp=0.1)");
     return JNI_TRUE;
 }
 
@@ -188,6 +210,10 @@ Java_com_omarqaterge_hermesmobile_LocalLlmImpl_nativeUnload(JNIEnv *env, jclass 
     if (g_ctx) {
         llama_free(g_ctx);
         g_ctx = nullptr;
+    }
+    if (g_mtmd) {
+        mtmd_free(g_mtmd);
+        g_mtmd = nullptr;
     }
     if (g_model) {
         llama_model_free(g_model);

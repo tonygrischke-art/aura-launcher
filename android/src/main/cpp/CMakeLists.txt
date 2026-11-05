@@ -27,7 +27,9 @@ if(DEFINED ANDROID_ABI)
     endif()
 endif()
 
-# Build llama.cpp as a subdirectory
+# Build llama.cpp as a subdirectory with MTMD (multimodal) support
+set(LLAMA_BUILD_MTMD ON CACHE BOOL "Build mtmd library" FORCE)
+set(LLAMA_BUILD_TOOLS OFF CACHE BOOL "Skip tools build" FORCE)
 add_subdirectory(${LLAMA_SRC} build-llama)
 
 # Our JNI library
@@ -41,11 +43,13 @@ target_include_directories(hermes-llama PRIVATE
     ${LLAMA_SRC}/include
     ${LLAMA_SRC}/ggml/include
     ${LLAMA_SRC}/ggml/src
+    ${LLAMA_SRC}/tools/mtmd
 )
 
 target_link_libraries(hermes-llama
     llama
     llama-common
+    mtmd
     android
     log
 )
