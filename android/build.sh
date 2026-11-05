@@ -22,19 +22,21 @@ KS="${KEYSTORE:-$HOME/.android/hermes-mobile.keystore}"  # CI passes the release
 [ -x "$CMAKE" ] || { echo "missing cmake 3.22.1"; exit 1; }
 [ -d "$NDK" ] || { echo "missing NDK at $NDK"; exit 1; }
 
-# 0. Build native library (llama.cpp JNI)
+# 0. Build native library (llama.cpp + mtmd + JNI)
 echo "Building native library..."
-rm -rf build/native
-mkdir -p build/native/arm64-v8a
+LLVM_BIN="$(ls -d "$NDK"/toolchains/llvm/prebuilt/*/bin | head -1)"
+READELF="$LLVM_BIN/llvm-readelf"; NM="$LLVM_BIN/llvm-nm"
+NATIVE=build/native/arm64-v8a
+rm -rf build/native src/main/jniLibs
+mkdir -p "$NATIVE"
 
-# Configure with CMake
-"$CMAKE" -S src/main/cpp -B build/native/arm64-v8a \
+"$CMAKE" -S src/main/cpp -B "$NATIVE" \
     -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
     -DANDROID_ABI=arm64-v8a \
     -DANDROID_PLATFORM=android-28 \
+    -DANDROID_STL=c++_shared \
     -DCMAKE_BUILD_TYPE=Release \
     -DLLAMA_BUILD_COMMON=ON \
-    -DLLAMA_BUILD_MTMD=ON \
     -DLLAMA_OPENSSL=OFF \
     -DBUILD_SHARED_LIBS=ON \
     -DGGML_BACKEND_DL=ON \
@@ -42,14 +44,32 @@ mkdir -p build/native/arm64-v8a
     -DGGML_LLAMAFILE=OFF \
     -DCMAKE_C_FLAGS="-O3 -DNDEBUG" \
     -DCMAKE_CXX_FLAGS="-O3 -DNDEBUG"
+"$CMAKE" --build "$NATIVE" --config Release -- -j"$(nproc 2>/dev/null || sysctl -n hw.ncpu)"
 
-# Build
-"$CMAKE" --build build/native/arm64-v8a --config Release -- -j$(nproc)
+# Collect EVERY library the APK needs: our JNI lib, llama.cpp's libs (llama.cpp writes them to <build>/bin),
+# the ggml CPU backend modules (dlopen'd, not in DT_NEEDED), and libc++_shared.
+JNI=src/main/jniLibs/arm64-v8a
+mkdir -p "$JNI"
+cp "$NATIVE/libhermes-llama.so" "$JNI/"
+find "$NATIVE" -name 'lib*.so' -not -path "$NATIVE/libhermes-llama.so" -exec cp -f {} "$JNI/" \;
+cp "$LLVM_BIN/../sysroot/usr/lib/aarch64-linux-android/libc++_shared.so" "$JNI/"
 
-# Copy built .so to jniLibs for APK packaging
-mkdir -p src/main/jniLibs/arm64-v8a
-cp build/native/arm64-v8a/libhermes-llama.so src/main/jniLibs/arm64-v8a/
-cp -a build/native/arm64-v8a/libmtmd.so* src/main/jniLibs/arm64-v8a/
+# Gate: fail the build rather than ship an APK that cannot load.
+SYSTEM_LIBS=" libc.so libm.so libdl.so liblog.so libandroid.so "
+for so in "$JNI"/*.so; do
+  base="$(basename "$so")"
+  case "$base" in *.so.[0-9]*) echo "FAIL: versioned library name $base"; exit 1;; esac
+  soname="$("$READELF" -d "$so" | sed -n 's/.*SONAME.*\[\(.*\)\]/\1/p')"
+  [ -z "$soname" ] || [ "$soname" = "$base" ] || { echo "FAIL: $base has SONAME $soname"; exit 1; }
+  for need in $("$READELF" -d "$so" | sed -n 's/.*NEEDED.*\[\(.*\)\]/\1/p'); do
+    case "$SYSTEM_LIBS" in *" $need "*) continue;; esac
+    [ -f "$JNI/$need" ] || { echo "FAIL: $base needs $need which is not packaged"; exit 1; }
+  done
+done
+"$NM" -D --defined-only "$JNI/libhermes-llama.so" | grep -q 'Java_com_omarqaterge_hermesmobile_LocalLlmImpl_nativeLoad' \
+  || { echo "FAIL: JNI symbols missing from libhermes-llama.so"; exit 1; }
+ls "$JNI"/libggml-cpu-*.so >/dev/null 2>&1 || { echo "FAIL: no libggml-cpu-*.so backend modules (GGML_BACKEND_DL)"; exit 1; }
+echo "Native libs OK:"; ls -l "$JNI"
 
 # 1. web UI → assets
 ( cd ../web && npx vite build >/dev/null )
@@ -84,14 +104,10 @@ javac -encoding UTF-8 -source 11 -target 11 -Xlint:-options -classpath "$ANDROID
 "$BT/d8" --min-api 26 --lib "$ANDROID_JAR" --output build/dex $(find build/classes -name '*.class')
 ( cd build/dex && zip -q -j ../unsigned.apk classes.dex )
 
-# 4. Add native libraries to APK
-cd build
-unzip -q unsigned.apk -d unsigned_apk
-mkdir -p unsigned_apk/lib/arm64-v8a
-cp ../src/main/jniLibs/arm64-v8a/libhermes-llama.so unsigned_apk/lib/arm64-v8a/
-cd unsigned_apk
-zip -q -r ../unsigned.apk .
-cd ../..
+# 4. Add native libraries to APK (stored uncompressed so zipalign -p can page-align them)
+mkdir -p build/apk_lib/lib/arm64-v8a
+cp src/main/jniLibs/arm64-v8a/*.so build/apk_lib/lib/arm64-v8a/
+( cd build/apk_lib && zip -q -0 -r ../unsigned.apk lib )
 
 # 5. align + sign
 [ -f "$KS" ] || { mkdir -p "$(dirname "$KS")"; keytool -genkeypair -keystore "$KS" -storepass hermesmobile -keypass hermesmobile \

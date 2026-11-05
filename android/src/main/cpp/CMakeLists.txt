@@ -7,9 +7,21 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Compute LLAMA_SRC from this file's location to the repo-root llama.cpp
-set(LLAMA_SRC ${CMAKE_CURRENT_SOURCE_DIR}/../../../../../llama.cpp)
+# llama.cpp lives at <repo>/llama.cpp. This file is <repo>/android/src/main/cpp,
+# so the repo root is FOUR levels up (the old path went five up, i.e. outside the repo).
+# Override with -DLLAMA_SRC=/path if llama.cpp is checked out elsewhere.
+set(LLAMA_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../../../../llama.cpp" CACHE PATH "llama.cpp source tree")
+get_filename_component(LLAMA_SRC "${LLAMA_SRC}" REALPATH)
+if(NOT EXISTS "${LLAMA_SRC}/CMakeLists.txt")
+    message(FATAL_ERROR "llama.cpp not found at ${LLAMA_SRC} (pass -DLLAMA_SRC=...)")
+endif()
 message(STATUS "LLAMA_SRC resolved to: ${LLAMA_SRC}")
+
+# Android only unpacks APK entries named lib*.so, and the dynamic linker resolves
+# DT_NEEDED by literal name. llama.cpp sets SOVERSION on every library, which yields
+# libllama.so.0 / libmtmd.so.0 etc. Those never get extracted and the load fails.
+# Must be set before add_subdirectory(). build.sh re-verifies the result with readelf.
+set(CMAKE_PLATFORM_NO_VERSIONED_SONAME ON)
 
 # Android ABI detection
 if(DEFINED ANDROID_ABI)
@@ -50,6 +62,7 @@ target_link_libraries(hermes-llama
     llama
     llama-common
     mtmd
+    ggml
     android
     log
 )

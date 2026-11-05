@@ -11,8 +11,19 @@ import java.util.concurrent.Executors;
  * Provides on-device inference for the Hermes assistant.
  */
 public final class LocalLlmImpl {
+    private static volatile String sLoadError = ""; // declared first: static initializers run in textual order
+    private static final boolean sNativeOk;
     static {
-        System.loadLibrary("hermes-llama");
+        boolean ok = false;
+        try {
+            // Dependencies (libllama, libggml, libmtmd, ...) resolve from the APK's native lib dir by DT_NEEDED name.
+            System.loadLibrary("hermes-llama");
+            ok = true;
+        } catch (UnsatisfiedLinkError e) {
+            android.util.Log.e("HermesLlama", "native library failed to load: " + e.getMessage());
+            sLoadError = e.getMessage();
+        }
+        sNativeOk = ok;
     }
 
     // Native methods (must match JNI signatures exactly)
@@ -20,6 +31,7 @@ public final class LocalLlmImpl {
     private static native boolean nativeLoad(String modelPath, String mmprojPath, int nCtx);
     private static native void nativeUnload();
     private static native void nativeAbort();
+    private static native String nativeLastError();
     private static native void nativeGenerate(String prompt, int maxTokens, float temperature, GenerateCallback callback);
 
     /** Callback interface for streaming generation. */
@@ -37,7 +49,7 @@ public final class LocalLlmImpl {
     /** Initialize the native library (call once at app startup). */
     public static void init(Context context) {
         synchronized (sLock) {
-            if (sInitialized) return;
+            if (sInitialized || !sNativeOk) return;
             String libDir = context.getApplicationInfo().nativeLibraryDir;
             nativeInit(libDir);
             sInitialized = true;
@@ -46,6 +58,8 @@ public final class LocalLlmImpl {
 
     /** Load a GGUF model file with its multimodal projector. Must be called before generate(). */
     public static boolean loadModel(File modelFile, File mmprojFile, int nCtx) {
+        if (!sNativeOk || !sInitialized) return false;
+        nativeAbort(); // an in-flight generate() holds the native lock; ask it to stop. Call off the main thread.
         synchronized (sLock) {
             if (!modelFile.exists()) {
                 return false;
@@ -63,6 +77,8 @@ public final class LocalLlmImpl {
 
     /** Unload the current model and free resources. */
     public static void unload() {
+        if (!sNativeOk) return;
+        nativeAbort();
         synchronized (sLock) {
             if (sLoaded) {
                 nativeUnload();
@@ -73,7 +89,7 @@ public final class LocalLlmImpl {
 
     /** Abort the current generation. */
     public static void abort() {
-        nativeAbort();
+        if (sNativeOk) nativeAbort();
     }
 
     /**
@@ -101,6 +117,16 @@ public final class LocalLlmImpl {
                 }
             });
         });
+    }
+
+    /** Why the last loadModel()/init failed (native error text, or the library load error). */
+    public static String lastError() {
+        if (!sNativeOk) return "native library not loaded: " + sLoadError;
+        return nativeLastError();
+    }
+
+    public static boolean isNativeAvailable() {
+        return sNativeOk;
     }
 
     public static boolean isLoaded() {
