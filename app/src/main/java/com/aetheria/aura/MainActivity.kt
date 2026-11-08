@@ -97,6 +97,7 @@ class MainActivity : ComponentActivity() {
     private var isListening = false
     private lateinit var nimClient: NimClient
     private var currentPhase: AuraMood = AuraMood.IDLE
+    private val micLevel = mutableFloatStateOf(0f)
 
     // Permission onboarding state
     private val prefsName = "aura_prefs"
@@ -442,17 +443,22 @@ class MainActivity : ComponentActivity() {
                 Log.d("AuraMic", "Speech started")
             }
 
-            override fun onRmsChanged(rmsdB: Float) {}
+            override fun onRmsChanged(rmsdB: Float) {
+                val norm = ((rmsdB + 2f) / 12f).coerceIn(0f, 1f)
+                micLevel.floatValue = micLevel.floatValue * 0.6f + norm * 0.4f
+            }
 
             override fun onBufferReceived(buffer: ByteArray) {}
 
             override fun onEndOfSpeech() {
                 isListening = false
+                micLevel.floatValue = 0f
                 Log.d("AuraMic", "Speech ended")
             }
 
             override fun onError(error: Int) {
                 isListening = false
+                micLevel.floatValue = 0f
                 val errorMsg = when (error) {
                     SpeechRecognizer.ERROR_AUDIO -> "Audio error"
                     SpeechRecognizer.ERROR_CLIENT -> "Client error"
@@ -475,6 +481,7 @@ class MainActivity : ComponentActivity() {
                     Log.d("AuraMic", "Recognized: $recognizedText")
                     // Submit the recognized text
                     doSubmit(recognizedText)
+                    micLevel.floatValue = 0f
                 }
             }
 
