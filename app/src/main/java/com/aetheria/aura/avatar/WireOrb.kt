@@ -361,7 +361,7 @@ fun WireOrb(mood: AuraMood, level: Float = 0f, onTap: () -> Unit, modifier: Modi
             for (k in 0..2) {
                 val phase = (s.time * 0.8f + k / 3f) % 1f
                 drawCircle(
-                    color = lineColor.copy(alpha = (1f - phase) * s.ripple * 0.5f + listenLevel * 0.5f),
+                    color = lineColor.copy(alpha = ((1f - phase) * s.ripple * 0.5f + listenLevel * 0.5f).coerceIn(0f, 1f)),
                     radius = r * (0.2f + 0.75f * phase),
                     center = center,
                     style = Stroke(width = 1.5f)
