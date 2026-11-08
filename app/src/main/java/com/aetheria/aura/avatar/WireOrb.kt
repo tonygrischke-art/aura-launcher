@@ -231,10 +231,12 @@ private class OrbState(count: Int) {
 }
 
 @Composable
-fun WireOrb(mood: AuraMood, onTap: () -> Unit, modifier: Modifier = Modifier) {
+fun WireOrb(mood: AuraMood, level: Float = 0f, onTap: () -> Unit, modifier: Modifier = Modifier) {
     val s = remember { OrbState(MESH.verts.size / 3) }
     val currentMood by rememberUpdatedState(mood)
     val currentOnTap by rememberUpdatedState(onTap)
+    val levelSmooth by animateFloatAsState(level, tween(400), label = "level")
+    val listenLevel = if (mood == AuraMood.LISTENING) levelSmooth else 0f
     val haptic = LocalHapticFeedback.current
     var tick by remember { mutableLongStateOf(0L) }
 
@@ -305,7 +307,7 @@ fun WireOrb(mood: AuraMood, onTap: () -> Unit, modifier: Modifier = Modifier) {
         // outer halo
         drawCircle(
             brush = Brush.radialGradient(
-                colors = listOf(Color.Transparent, CYAN.copy(alpha = 0.07f * s.cyan), Color.Transparent),
+                colors = listOf(Color.Transparent, CYAN.copy(alpha = (0.07f * s.cyan + 0.5f * listenLevel).coerceIn(0f, 1f)), Color.Transparent),
                 center = center,
                 radius = r * 1.25f
             ),
@@ -314,7 +316,7 @@ fun WireOrb(mood: AuraMood, onTap: () -> Unit, modifier: Modifier = Modifier) {
         )
 
         // violet core
-        val breath = 1f + (0.07f + 0.08f * s.violet) * sin(s.time * (1.6f + s.violet * 3f))
+        val breath = 1f + (0.07f + 0.08f * s.violet + 0.06f * listenLevel) * sin(s.time * (1.6f + s.violet * 3f))
         val coreR = r * 0.5f * breath
         drawCircle(
             brush = Brush.radialGradient(
@@ -359,7 +361,7 @@ fun WireOrb(mood: AuraMood, onTap: () -> Unit, modifier: Modifier = Modifier) {
             for (k in 0..2) {
                 val phase = (s.time * 0.8f + k / 3f) % 1f
                 drawCircle(
-                    color = lineColor.copy(alpha = (1f - phase) * s.ripple * 0.5f),
+                    color = lineColor.copy(alpha = (1f - phase) * s.ripple * 0.5f + listenLevel * 0.5f),
                     radius = r * (0.2f + 0.75f * phase),
                     center = center,
                     style = Stroke(width = 1.5f)

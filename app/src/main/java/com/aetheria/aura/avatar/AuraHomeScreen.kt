@@ -59,6 +59,7 @@ fun AuraHomeScreen(
     status: String?,
     messages: List<ChatMessage>,
     modifier: Modifier = Modifier,
+    micLevel: Float = 0f,
 ) {
     var now by remember { mutableStateOf(Date()) }
     LaunchedEffect(Unit) { while (true) { now = Date(); delay(15_000) } }
@@ -128,6 +129,7 @@ fun AuraHomeScreen(
             } else {
                 WireOrb(
                     mood = if (debuggable) debugMood else mood,
+                    level = micLevel,
                     onTap = {
                         if (debuggable) {
                             debugMood = when (debugMood) {

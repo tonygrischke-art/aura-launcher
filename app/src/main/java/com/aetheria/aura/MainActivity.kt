@@ -228,7 +228,8 @@ class MainActivity : ComponentActivity() {
                         },
                         status = status,
                         messages = messages.value as List<ChatMessage>,
-                        onSettings = { showSettings = true }
+                        onSettings = { showSettings = true },
+                        micLevel = micLevel.floatValue
                     )
                 }
             }
