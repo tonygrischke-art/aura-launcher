@@ -28,4 +28,5 @@ android/assets/phone/
 __pycache__/
 *.pyc
 *.keystore
+!app/debug.keystore
 out/

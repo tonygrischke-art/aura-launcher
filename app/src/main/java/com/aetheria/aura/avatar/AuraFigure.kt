@@ -33,7 +33,7 @@ import kotlin.math.roundToInt
 import kotlin.math.sin
 
 @Composable
-fun AuraFigure(mood: AuraMood, modifier: Modifier = Modifier) {
+fun AuraFigure(mood: AuraMood, level: Float = 0f, modifier: Modifier = Modifier) {
     val bitmap = ImageBitmap.imageResource(R.drawable.aura_figure)
 
     val haloSpeed by animateFloatAsState(
@@ -43,13 +43,18 @@ fun AuraFigure(mood: AuraMood, modifier: Modifier = Modifier) {
         when (mood) { AuraMood.IDLE -> 0.25f; AuraMood.LISTENING -> 0.55f; AuraMood.THINKING -> 0.40f; AuraMood.ACTING -> 0.85f },
         tween(400), label = "glowBase")
     val glowAmp by animateFloatAsState(
-        when (mood) { AuraMood.IDLE -> 0.15f; AuraMood.LISTENING -> 0.20f; AuraMood.THINKING -> 0.30f; AuraMood.ACTING -> 0.05f },
+        when (mood) {
+            AuraMood.IDLE -> 0.15f;
+            AuraMood.LISTENING -> 0.20f + 0.5f * level;
+            AuraMood.THINKING -> 0.30f;
+            AuraMood.ACTING -> 0.05f
+        },
         tween(400), label = "glowAmp")
     val pulseHz by animateFloatAsState(
         when (mood) { AuraMood.IDLE -> 0.25f; AuraMood.LISTENING -> 0.8f; AuraMood.THINKING -> 1.25f; AuraMood.ACTING -> 0.5f },
         tween(400), label = "pulseHz")
-    val moodScale by animateFloatAsState(if (mood == AuraMood.LISTENING) 1.03f else 1f, tween(400), label = "moodScale")
-    val rippleAlpha by animateFloatAsState(if (mood == AuraMood.LISTENING) 1f else 0f, tween(400), label = "ripple")
+    val moodScale by animateFloatAsState(if (mood == AuraMood.LISTENING) 1.03f + 0.06f * level else 1f, tween(400), label = "moodScale")
+    val rippleAlpha by animateFloatAsState(if (mood == AuraMood.LISTENING) level else 0f, tween(400), label = "ripple")
     val glowColor by animateColorAsState(
         if (mood == AuraMood.THINKING) AuraColors.Violet else AuraColors.Cyan, tween(400), label = "glowColor")
 

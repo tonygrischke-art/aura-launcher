@@ -40,8 +40,18 @@ android {
         buildConfigField("String", "HERMES_ENDPOINT", "\"http://localhost:8766/command\"")
     }
 
+    signingConfigs {
+        named("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         debug {
+            signingConfig = signingConfigs.getByName("debug")
             isDebuggable = true
             isMinifyEnabled = false
             isShrinkResources = false
