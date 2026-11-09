@@ -1,8 +1,10 @@
 package com.aetheria.aura
 
 import android.Manifest
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.content.SharedPreferences
 import android.os.Bundle
@@ -40,6 +42,7 @@ import com.aetheria.aura.router.CommandRouter
 import com.aetheria.aura.router.AuraActionRoute
 import com.aetheria.aura.router.AppIndexManager
 import com.aetheria.aura.settings.SettingsScreen
+import com.aetheria.aura.wakeWord.WakeWordService
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.rememberCoroutineScope
 import com.aetheria.aura.actions.AuraAction
@@ -94,11 +97,18 @@ data class ChatMessage(
 }
 
 class MainActivity : ComponentActivity() {
+    private val TAG = "AuraMain"
     private var speechRecognizer: SpeechRecognizer? = null
     private var isListening = false
     private lateinit var nimClient: NimClient
     private var currentPhase: AuraMood = AuraMood.IDLE
-    private val micLevel = mutableFloatStateOf(0f)
+    private var micLevel = mutableFloatStateOf(0f)
+    private val wakeWordReceiver = BroadcastReceiver { _, intent ->
+        if (intent.action == WakeWordService.ACTION_WAKE_WORD_DETECTED) {
+            Log.i(TAG, "Wake word detected - setting orb to LISTENING")
+            currentPhase = AuraMood.LISTENING
+        }
+    }
 
     // Permission onboarding state
     private val prefsName = "aura_prefs"
@@ -144,6 +154,12 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+
+        // Register wake word broadcast receiver
+        registerReceiver(
+            wakeWordReceiver,
+            IntentFilter(WakeWordService.ACTION_WAKE_WORD_DETECTED)
+        )
 
         setContent {
             val pm = packageManager

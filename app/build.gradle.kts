@@ -49,6 +49,14 @@ android {
         }
     }
 
+    sourceSets {
+        main {
+            assets {
+                srcDirs("src/main/assets")
+            }
+        }
+    }
+
     buildTypes {
         debug {
             signingConfig = signingConfigs.getByName("debug")
@@ -101,6 +109,12 @@ android {
     }
 }
 
+repositories {
+    flatDir {
+        dirs("libs")
+    }
+}
+
 kotlin {
     compilerOptions {
         jvmTarget.set(JvmTarget.JVM_17)
@@ -145,6 +159,9 @@ dependencies {
 
     // Media3 ExoPlayer for video orb
     implementation("androidx.media3:media3-exoplayer:1.5.1")
+
+    // Sherpa-ONNX for wake word detection (arm64-v8a AAR downloaded in CI to app/libs/)
+    implementation(name = "sherpa-onnx-android-arm64-v8a", ext = "aar")
 
     // Debug
     debugImplementation("androidx.compose.ui:ui-tooling")
