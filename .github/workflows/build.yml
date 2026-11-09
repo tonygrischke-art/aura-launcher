@@ -42,6 +42,8 @@ jobs:
           mkdir -p app/libs
           curl -L -o app/libs/sherpa-onnx-android-arm64-v8a.aar \
             https://github.com/k2-fsa/sherpa-onnx/releases/download/v2.0.1/sherpa-onnx-2.0.1.aar
+          ls -l app/libs/sherpa-onnx-android-arm64-v8a.aar
+          test $(stat -c%s app/libs/sherpa-onnx-android-arm64-v8a.aar) -gt 1048576
 
       - name: Run unit tests
         run: |

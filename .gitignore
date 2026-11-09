@@ -29,4 +29,5 @@ __pycache__/
 *.pyc
 *.keystore
 !app/debug.keystore
+app/libs/*.aar
 out/
