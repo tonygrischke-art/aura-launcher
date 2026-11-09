@@ -5,6 +5,10 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.shape.CircleShape
@@ -145,50 +149,100 @@ fun AuraHomeScreen(
             }
         }
 
-        // Chat history above input
+        // Chat history (scrollable)
         if (messages.isNotEmpty()) {
-            val displayMessages = messages.takeLast(10)
-            Column(
-                Modifier
+            val scrollState = rememberLazyListState()
+            LaunchedEffect(messages) {
+                scrollState.animateScrollToItem(scrollState.lastItemIndex ?: 0)
+            }
+            LazyColumn(
+                modifier = Modifier
                     .fillMaxWidth()
-                    .height(200.dp)
-                    .padding(bottom = 12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .weight(1f)
+                    .padding(bottom = 12.dp)
+                    .verticalScroll(scrollState),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                state = scrollState,
             ) {
-                Box(
-                    Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.BottomCenter
-                ) {
-                    Column(
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 8.dp)
-                            .background(Color(0xFF14181F))
-                            .clip(RoundedCornerShape(12.dp)),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        displayMessages.forEach { msg ->
-                            val time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(msg.timestamp)
-                            val (textColor, align) = when (msg.role) {
-                                ChatMessage.Role.USER -> Color.White to Alignment.End
-                                ChatMessage.Role.AURA -> Color.Cyan to Alignment.Start
-                                ChatMessage.Role.SYSTEM -> Color.Gray to Alignment.CenterHorizontally
-                            }
+                items(messages) { msg ->
+                    val time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(msg.timestamp)
+                    when (msg.role) {
+                        ChatMessage.Role.USER -> {
                             Row(
-                                Modifier
+                                modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 12.dp, vertical = 4.dp),
-                                horizontalArrangement = when (align) {
-                                    Alignment.Start -> Arrangement.Start
-                                    Alignment.End -> Arrangement.End
-                                    else -> Arrangement.Center
+                                    .padding(start = 56.dp),
+                                horizontalArrangement = Arrangement.End
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .background(Color(0xFF2A2A2A))
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                                ) {
+                                    Column(
+                                        modifier = Modifier.align(Alignment.CenterEnd),
+                                        horizontalAlignment = Alignment.End
+                                    ) {
+                                        Text(
+                                            text = msg.content,
+                                            color = Color.White,
+                                            fontSize = 14.sp,
+                                            maxLines = 10
+                                        )
+                                        Text(
+                                            text = time,
+                                            color = Color.White.copy(alpha = 0.5f),
+                                            fontSize = 10.sp,
+                                            modifier = Modifier.align(Alignment.End)
+                                        )
+                                    }
                                 }
+                            }
+                        }
+                        ChatMessage.Role.AURA -> {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(end = 56.dp),
+                                horizontalArrangement = Arrangement.Start
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .background(Color(0xFF14181F))
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                                ) {
+                                    Column(
+                                        modifier = Modifier.align(Alignment.Start),
+                                        horizontalAlignment = Alignment.Start
+                                    ) {
+                                        Text(
+                                            text = msg.content,
+                                            color = Color.Cyan,
+                                            fontSize = 14.sp,
+                                            maxLines = 10
+                                        )
+                                        Text(
+                                            text = time,
+                                            color = Color.Cyan.copy(alpha = 0.5f),
+                                            fontSize = 10.sp,
+                                            modifier = Modifier.align(Alignment.Start)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        ChatMessage.Role.SYSTEM -> {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.Center
                             ) {
                                 Text(
-                                    text = "${msg.content}",
-                                    color = textColor,
-                                    fontSize = 14.sp,
-                                    maxLines = 3
+                                    text = msg.content,
+                                    color = Color.Gray,
+                                    fontSize = 13.sp,
+                                    maxLines = 5
                                 )
                             }
                         }
