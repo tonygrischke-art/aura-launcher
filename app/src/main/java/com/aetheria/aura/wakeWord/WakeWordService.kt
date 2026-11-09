@@ -79,8 +79,8 @@ class WakeWordService : Service() {
 
         if (!allPresent) {
             initError = "Missing model files in assets/wake/"
-            Log.e(TAG, initError)
-            showNotification("Wake word detection unavailable - $initError")
+            Log.e(TAG, initError ?: "unknown")
+            showNotification("Wake word detection unavailable - ${initError ?: "unknown"}")
             return
         }
 
@@ -93,7 +93,7 @@ class WakeWordService : Service() {
         } catch (e: Exception) {
             initError = "sherpa-onnx init failed: ${e.message}"
             Log.e(TAG, initError, e)
-            showNotification("Wake word detection unavailable - $initError")
+            showNotification("Wake word detection unavailable - ${initError ?: "unknown"}")
         }
     }
 
@@ -102,9 +102,9 @@ class WakeWordService : Service() {
             val notification = buildNotification()
             try {
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                    startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+                    startForeground(NOTIFICATION_ID, notification.build(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
                 } else {
-                    startForeground(NOTIFICATION_ID, notification)
+                    startForeground(NOTIFICATION_ID, notification.build())
                 }
                 isRunning = true
                 Log.d(TAG, "WakeWordService started")
@@ -235,7 +235,7 @@ class WakeWordService : Service() {
                 // Decode and check result
                 decodeMethod?.invoke(recognizer, stream)
                 val result = getResultMethod?.invoke(recognizer, stream) as? String
-                if (result.isNotBlank() && result.length > 0) {
+                if (result != null && result.isNotBlank()) {
                     Log.d(TAG, "Recognition result: $result")
                     if (isWakeWord(result)) {
                         Log.i(TAG, "Wake word detected: $result")

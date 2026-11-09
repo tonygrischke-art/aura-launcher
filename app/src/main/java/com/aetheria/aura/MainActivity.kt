@@ -47,7 +47,6 @@ import androidx.activity.ComponentActivity
 import androidx.compose.runtime.rememberCoroutineScope
 import com.aetheria.aura.actions.AuraAction
 import com.aetheria.aura.accessibility.AuraAccessibilityService
-import com.aetheria.aura.wakeWord.WakeWordService
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -103,10 +102,12 @@ class MainActivity : ComponentActivity() {
     private lateinit var nimClient: NimClient
     private var currentPhase: AuraMood = AuraMood.IDLE
     private var micLevel = mutableFloatStateOf(0f)
-    private val wakeWordReceiver = BroadcastReceiver { _, intent ->
-        if (intent.action == WakeWordService.ACTION_WAKE_WORD_DETECTED) {
-            Log.i(TAG, "Wake word detected - setting orb to LISTENING")
-            currentPhase = AuraMood.LISTENING
+    private val wakeWordReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == WakeWordService.ACTION_WAKE_WORD_DETECTED) {
+                Log.i(TAG, "Wake word detected - setting orb to LISTENING")
+                currentPhase = AuraMood.LISTENING
+            }
         }
     }
 
