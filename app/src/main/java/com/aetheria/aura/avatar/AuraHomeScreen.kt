@@ -5,7 +5,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -153,14 +152,13 @@ fun AuraHomeScreen(
         if (messages.isNotEmpty()) {
             val scrollState = rememberLazyListState()
             LaunchedEffect(messages) {
-                scrollState.animateScrollToItem(scrollState.lastItemIndex ?: 0)
+                scrollState.animateScrollToItem(messages.lastIndex)
             }
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
-                    .padding(bottom = 12.dp)
-                    .verticalScroll(scrollState),
+                    .padding(bottom = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
                 state = scrollState,
             ) {
@@ -181,7 +179,6 @@ fun AuraHomeScreen(
                                         .padding(horizontal = 12.dp, vertical = 6.dp)
                                 ) {
                                     Column(
-                                        modifier = Modifier.align(Alignment.CenterEnd),
                                         horizontalAlignment = Alignment.End
                                     ) {
                                         Text(
@@ -214,7 +211,6 @@ fun AuraHomeScreen(
                                         .padding(horizontal = 12.dp, vertical = 6.dp)
                                 ) {
                                     Column(
-                                        modifier = Modifier.align(Alignment.Start),
                                         horizontalAlignment = Alignment.Start
                                     ) {
                                         Text(
