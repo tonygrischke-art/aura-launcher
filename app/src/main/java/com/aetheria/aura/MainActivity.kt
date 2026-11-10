@@ -157,9 +157,10 @@ class MainActivity : ComponentActivity() {
         }
 
         // Register wake word broadcast receiver
-        registerReceiver(
-            wakeWordReceiver,
-            IntentFilter(WakeWordService.ACTION_WAKE_WORD_DETECTED)
+        ContextCompat.registerReceiver(
+            this, wakeWordReceiver,
+            IntentFilter(WakeWordService.ACTION_WAKE_WORD_DETECTED),
+            ContextCompat.RECEIVER_NOT_EXPORTED
         )
 
         setContent {
@@ -525,6 +526,11 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        try {
+            unregisterReceiver(wakeWordReceiver)
+        } catch (e: IllegalArgumentException) {
+            Log.w(TAG, "wakeWordReceiver not registered", e)
+        }
         speechRecognizer?.destroy()
         super.onDestroy()
     }

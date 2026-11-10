@@ -263,7 +263,7 @@ class WakeWordService : Service() {
     }
 
     private fun broadcastWakeWord() {
-        val intent = Intent(ACTION_WAKE_WORD_DETECTED)
+        val intent = Intent(ACTION_WAKE_WORD_DETECTED).setPackage(packageName)
         sendBroadcast(intent)
         Log.i(TAG, "Broadcast WAKE_WORD_DETECTED")
     }
