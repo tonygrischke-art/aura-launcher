@@ -5,6 +5,7 @@ import com.aetheria.aura.router.AuraActionRoute.CallContact
 import com.aetheria.aura.router.AuraActionRoute.OpenApp
 import com.aetheria.aura.router.AuraActionRoute.SendText
 import com.aetheria.aura.router.AuraActionRoute.WebSearch
+import com.aetheria.aura.router.AuraActionRoute.ShizukuShell
 import com.aetheria.aura.router.CommandRouter.route
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -255,5 +256,38 @@ class CommandRouterTest {
         assertTrue(route is SendText)
         assertEquals("ALISHA", (route as SendText).name)
         assertEquals("hi", (route as SendText).body)
+    }
+
+    @Test
+    fun `shizuku prefix id routes to ShizukuShell`() {
+        val route = route("shizuku: id")
+        assertTrue(route is ShizukuShell)
+        assertEquals("id", (route as ShizukuShell).command)
+    }
+
+    @Test
+    fun `shizuku prefix multi word command keeps rest verbatim`() {
+        val route = route("shizuku: getprop ro.build.version.sdk")
+        assertTrue(route is ShizukuShell)
+        assertEquals("getprop ro.build.version.sdk", (route as ShizukuShell).command)
+    }
+
+    @Test
+    fun `SHIZUKU prefix case insensitive routes to ShizukuShell`() {
+        val route = route("SHIZUKU: pm list packages -3")
+        assertTrue(route is ShizukuShell)
+        assertEquals("pm list packages -3", (route as ShizukuShell).command)
+    }
+
+    @Test
+    fun `shizuku prefix with no command routes to AskHermes`() {
+        val route = route("shizuku:   ")
+        assertTrue(route is AskHermes)
+    }
+
+    @Test
+    fun `shizuku as a word without colon still routes to AskHermes`() {
+        val route = route("shizuku please")
+        assertTrue(route is AskHermes)
     }
 }
