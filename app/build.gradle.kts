@@ -12,6 +12,7 @@ val activityComposeVersion: String by project
 val lifecycleVersion: String by project
 val coreKtxVersion: String by project
 val coroutinesVersion: String by project
+val shizukuVersion: String by project
 
 android {
     namespace = "com.aetheria.aura"
@@ -128,6 +129,10 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:$lifecycleVersion")
     implementation("androidx.core:core-ktx:$coreKtxVersion")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:$coroutinesVersion")
+
+    // Shizuku (API v13.1.5): shell-uid command execution via user service + ready-check provider
+    implementation("dev.rikka.shizuku:api:$shizukuVersion")
+    implementation("dev.rikka.shizuku:provider:$shizukuVersion")
     // Material Components for View-based themes
     implementation("com.google.android.material:material:1.12.0")
 
