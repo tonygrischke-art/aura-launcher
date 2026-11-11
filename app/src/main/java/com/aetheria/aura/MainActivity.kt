@@ -24,6 +24,7 @@ import com.aetheria.aura.nim.NimChatMessage
 import com.aetheria.aura.nim.NimClient
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableFloatStateOf
@@ -47,6 +48,8 @@ import androidx.activity.ComponentActivity
 import androidx.compose.runtime.rememberCoroutineScope
 import com.aetheria.aura.actions.AuraAction
 import com.aetheria.aura.accessibility.AuraAccessibilityService
+import com.aetheria.aura.shizuku.ShellExecutor
+import com.aetheria.aura.shizuku.ShizukuManager
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -412,6 +415,17 @@ class MainActivity : ComponentActivity() {
                                                 }
                                             )
                                         }
+                    is AuraActionRoute.ShizukuShell -> {
+                        // Raw shell command via the Shizuku user service (uid 2000 shell).
+                        val shizukuResult = ShellExecutor.exec(route.command)
+                        Log.d("AuraRouter", "Routed SHIZUKU_SHELL cmd='${route.command}' exit=${shizukuResult.exitCode}")
+                        addMessageInternal(ChatMessage.Role.SYSTEM, buildString {
+                            append("shizuku: ${route.command}")
+                            append("\nexit=${shizukuResult.exitCode}")
+                            if (shizukuResult.stdout.isNotBlank()) append("\nstdout:\n${shizukuResult.stdout.take(4000)}")
+                            if (shizukuResult.stderr.isNotBlank()) append("\nstderr:\n${shizukuResult.stderr.take(4000)}")
+                        })
+                    }
                 }
             } catch (e: Exception) {
                 Log.e("AuraRouter", "submit failed cmd='$trimmed'", e)
@@ -1174,6 +1188,63 @@ fun SettingsScreen(
                         }
                     }
                 }
+
+                Divider(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 16.dp),
+                    color = Color.White.copy(alpha = 0.2f),
+                    thickness = 1.dp
+                )
+
+                LaunchedEffect(Unit) { ShizukuManager.refresh() }
+                val shizukuState by ShizukuManager.state.collectAsState()
+
+                Text(
+                    text = "Shizuku (shell access)",
+                    style = Typography().titleMedium,
+                    color = Color(0xFF00E5FF)
+                )
+                Text(
+                    text = "State: ${shizukuState.name}",
+                    style = Typography().bodyMedium,
+                    color = if (shizukuState == ShizukuManager.State.READY) Color(0xFF00E5FF) else Color.White
+                )
+                Text(
+                    text = "Powers the \"shizuku:\" command prefix and Aura's local screen tools.",
+                    style = Typography().bodySmall,
+                    color = Color.White.copy(alpha = 0.6f)
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Button(
+                        onClick = { ShizukuManager.requestPermission() },
+                        enabled = shizukuState == ShizukuManager.State.PERMISSION_NEEDED || shizukuState == ShizukuManager.State.NOT_RUNNING,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF), contentColor = Color.Black)
+                    ) {
+                        Text("Request permission")
+                    }
+                    Button(
+                        onClick = {
+                            context.packageManager.getLaunchIntentForPackage(ShizukuManager.SHIZUKU_PACKAGE)?.let { intent ->
+                                context.startActivity(intent)
+                            }
+                        },
+                        enabled = shizukuState != ShizukuManager.State.NOT_INSTALLED,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.1f), contentColor = Color.White)
+                    ) {
+                        Text("Open Shizuku")
+                    }
+                    Button(
+                        onClick = { context.startActivity(ShizukuManager.getShizukuIntent()) },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.1f), contentColor = Color.White)
+                    ) {
+                        Text("Get Shizuku")
+                    }
+                }
             }
         }
     }
@@ -1192,3 +1263,4 @@ enum class ModelSource {
         this.description = description
     }
 }
+

@@ -22,6 +22,7 @@ sealed class AuraActionRoute {
     data class WebSearch(val query: String) : AuraActionRoute()
     data class NavigateWeb(val url: String) : AuraActionRoute()
     data class AskHermes(val input: String) : AuraActionRoute()
+    data class ShizukuShell(val command: String) : AuraActionRoute()
 }
 
 /**
@@ -172,6 +173,13 @@ object CommandRouter {
         }
 
         if (firstWord.isBlank()) return AuraActionRoute.AskHermes(input)
+
+        // "shizuku:" prefix -> raw shell command via the Shizuku user service (shell uid)
+        if (lowerInput.startsWith("shizuku:")) {
+            val command = trimmed.substring("shizuku:".length).trim()
+            return if (command.isBlank()) AuraActionRoute.AskHermes(input)
+            else AuraActionRoute.ShizukuShell(command)
+        }
 
         return when {
             firstWord in OPEN_VERBS -> {

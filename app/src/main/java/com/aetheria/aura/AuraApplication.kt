@@ -10,12 +10,14 @@ import androidx.work.WorkManager
 import androidx.work.OneTimeWorkRequestBuilder
 import com.aetheria.aura.model.ModelFileManager
 import com.aetheria.aura.nim.DailyHealthCheckWorker
+import com.aetheria.aura.shizuku.ShizukuManager
 import java.util.concurrent.TimeUnit
 
 class AuraApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         ModelFileManager.status(this)
+        ShizukuManager.init(this)
         scheduleDailyHealthCheck()
     }
 
