@@ -30,4 +30,7 @@ __pycache__/
 *.keystore
 !app/debug.keystore
 app/libs/*.aar
+# Local native build artifacts (never committed; CI compiles from source)
+app/.cxx/
+app/src/main/jniLibs/
 out/
