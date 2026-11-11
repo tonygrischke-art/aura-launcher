@@ -13,6 +13,12 @@ import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import com.k2fsa.sherpa.onnx.FeatureConfig
+import com.k2fsa.sherpa.onnx.OnlineModelConfig
+import com.k2fsa.sherpa.onnx.OnlineRecognizer
+import com.k2fsa.sherpa.onnx.OnlineRecognizerConfig
+import com.k2fsa.sherpa.onnx.OnlineStream
+import com.k2fsa.sherpa.onnx.OnlineTransducerModelConfig
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
@@ -42,9 +48,9 @@ class WakeWordService : Service() {
     private var wakeWordInitialized = false
     private var initError: String? = null
 
-    // sherpa-onnx objects (initialized in initSherpa)
-    private var recognizer: Any? = null
-    private var stream: Any? = null
+    // sherpa-onnx objects (initialized in initSherpaOnnx)
+    private var recognizer: OnlineRecognizer? = null
+    private var stream: OnlineStream? = null
 
     companion object {
         const val ACTION_WAKE_WORD_DETECTED = "com.aetheria.aura.WAKE_WORD_DETECTED"
@@ -134,6 +140,14 @@ class WakeWordService : Service() {
         }
         recognitionThread?.quit()
         recognitionThread = null
+        try {
+            recognizer?.release()
+            stream?.release()
+        } catch (e: Exception) {
+            Log.w(TAG, "Error releasing sherpa-onnx", e)
+        }
+        recognizer = null
+        stream = null
         Log.d(TAG, "WakeWordService stopped")
         super.onDestroy()
     }
@@ -150,49 +164,39 @@ class WakeWordService : Service() {
     }
 
     private fun initSherpaOnnx(modelsDir: File) {
-        // Load sherpa-onnx classes reflectively to avoid hard compile dependency
-        // when the AAR is not available (CI will download it)
-        val recognizerClass = Class.forName("io.github.k2fsa.sherpa.onnx.OnlineRecognizer")
-        val configClass = Class.forName("io.github.k2fsa.sherpa.onnx.OnlineRecognizerConfig")
-        val streamClass = Class.forName("io.github.k2fsa.sherpa.onnx.OnlineStream")
-
+        // sherpa-onnx v2.0.1 API (com.k2fsa.sherpa.onnx): data classes with defaulted
+        // constructors. OnlineRecognizer(assetManager = null, config) loads model files
+        // from absolute paths (assetManager path is for asset:// models).
         val encoderPath = File(modelsDir, "encoder.onnx").absolutePath
         val decoderPath = File(modelsDir, "decoder.onnx").absolutePath
         val joinerPath = File(modelsDir, "joiner.onnx").absolutePath
         val tokensPath = File(modelsDir, "tokens.txt").absolutePath
 
-        // Build OnlineRecognizerConfig
-        val config = configClass.getDeclaredConstructor().newInstance()
+        val featConfig = FeatureConfig(sampleRate = SAMPLE_RATE, featureDim = 80)
 
-        // Set config fields (sherpa-onnx v2.0.1 uses public fields)
-        configClass.getField("modelConfig").set(config, buildModelConfig(encoderPath, decoderPath, joinerPath, tokensPath))
-        configClass.getField("num_threads").set(config, 1)
-        configClass.getField("debug").set(config, false)
-        configClass.getField("endpoint_rule").set(config, "")
-        configClass.getField("max_active_paths").set(config, 4)
+        val transducer = OnlineTransducerModelConfig(
+            encoder = encoderPath,
+            decoder = decoderPath,
+            joiner = joinerPath,
+        )
 
-        // Create recognizer
-        val createMethod = recognizerClass.getMethod("createFromFile", configClass)
-        recognizer = createMethod.invoke(null, config)
+        val modelConfig = OnlineModelConfig(
+            transducer = transducer,
+            tokens = tokensPath,
+            modelType = "zipformer2",
+            numThreads = 1,
+            debug = false,
+        )
 
-        // Create stream
-        val createStreamMethod = recognizerClass.getMethod("createStream")
-        stream = createStreamMethod.invoke(recognizer)
-    }
+        val config = OnlineRecognizerConfig(
+            featConfig = featConfig,
+            modelConfig = modelConfig,
+            maxActivePaths = 4,
+        )
 
-    private fun buildModelConfig(encoder: String, decoder: String, joiner: String, tokens: String): Any {
-        val modelConfigClass = Class.forName("io.github.k2fsa.sherpa.onnx.OnlineModelConfig")
-        val config = modelConfigClass.getDeclaredConstructor().newInstance()
-
-        modelConfigClass.getField("model_type").set(config, "zipformer")
-        modelConfigClass.getField("encoder").set(config, encoder)
-        modelConfigClass.getField("decoder").set(config, decoder)
-        modelConfigClass.getField("joiner").set(config, joiner)
-        modelConfigClass.getField("tokens").set(config, tokens)
-        modelConfigClass.getField("num_threads").set(config, 1)
-        modelConfigClass.getField("debug").set(config, false)
-
-        return config
+        val rec = OnlineRecognizer(assetManager = null, config = config)
+        recognizer = rec
+        stream = rec.createStream()
     }
 
     private fun startRecognitionLoop() {
@@ -216,11 +220,14 @@ class WakeWordService : Service() {
             bufferSize
         ).apply { startRecording() }
 
-        val readMethod = recognizer?.javaClass?.getMethod("acceptWaveform", stream?.javaClass, FloatArray::class.java, Int::class.java, Int::class.java)
-        val decodeMethod = recognizer?.javaClass?.getMethod("decodeStream", stream?.javaClass)
-        val getResultMethod = recognizer?.javaClass?.getMethod("getResult", stream?.javaClass)
-        val isEndpointMethod = recognizer?.javaClass?.getMethod("isEndpoint", stream?.javaClass)
-        val resetMethod = recognizer?.javaClass?.getMethod("reset", stream?.javaClass)
+        val rec = recognizer ?: run {
+            Log.e(TAG, "Recognition loop: recognizer not initialized")
+            return
+        }
+        val st = stream ?: run {
+            Log.e(TAG, "Recognition loop: stream not initialized")
+            return
+        }
 
         while (isRunning) {
             val read = audioRecord!!.read(pcmBuffer, 0, FRAME_SIZE)
@@ -229,26 +236,28 @@ class WakeWordService : Service() {
                     buffer[i] = pcmBuffer[i] / 32768f
                 }
 
-                // Feed audio to sherpa-onnx
-                readMethod?.invoke(recognizer, stream, buffer, 0, read)
+                // Feed audio to sherpa-onnx (stream-side accept, then drain decodes)
+                st.acceptWaveform(buffer.copyOf(read), SAMPLE_RATE)
+                while (rec.isReady(st)) {
+                    rec.decode(st)
+                }
 
-                // Decode and check result
-                decodeMethod?.invoke(recognizer, stream)
-                val result = getResultMethod?.invoke(recognizer, stream) as? String
-                if (result != null && result.isNotBlank()) {
-                    Log.d(TAG, "Recognition result: $result")
-                    if (isWakeWord(result)) {
-                        Log.i(TAG, "Wake word detected: $result")
+                // Check result text for the keyword
+                val result = rec.getResult(st)
+                val text = result?.text ?: ""
+                if (text.isNotBlank()) {
+                    Log.d(TAG, "Recognition result: $text")
+                    if (isWakeWord(text)) {
+                        Log.i(TAG, "Wake word detected: $text")
                         broadcastWakeWord()
                         // Reset stream after detection
-                        resetMethod?.invoke(recognizer, stream)
+                        rec.reset(st)
                     }
                 }
 
                 // Check endpoint
-                val isEnd = isEndpointMethod?.invoke(recognizer, stream) as? Boolean ?: false
-                if (isEnd) {
-                    resetMethod?.invoke(recognizer, stream)
+                if (rec.isEndpoint(st)) {
+                    rec.reset(st)
                 }
             }
         }
