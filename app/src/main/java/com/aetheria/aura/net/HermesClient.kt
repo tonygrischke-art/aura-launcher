@@ -18,6 +18,7 @@ object HermesClient {
 
     private const val PREFS_NAME = "aura_settings"
     private const val KEY_ENDPOINT = "hermes_endpoint"
+    private const val KEY_USER_PROFILE = "user_profile"
 
     /** Persist a user-chosen Hermes endpoint. */
     fun setEndpoint(context: Context, endpoint: String) {
@@ -31,6 +32,20 @@ object HermesClient {
     fun getStoredEndpoint(context: Context): String {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .getString(KEY_ENDPOINT, null) ?: BuildConfig.HERMES_ENDPOINT
+    }
+
+    /** Returns the persisted user profile name, or empty string if not set. */
+    fun getStoredUserProfile(context: Context): String {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_USER_PROFILE, null) ?: ""
+    }
+
+    /** Persist a user-chosen profile name. */
+    fun setUserProfile(context: Context, name: String) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_USER_PROFILE, name)
+            .apply()
     }
 
     /** Returns true if the endpoint uses cleartext HTTP on a non-localhost host. */

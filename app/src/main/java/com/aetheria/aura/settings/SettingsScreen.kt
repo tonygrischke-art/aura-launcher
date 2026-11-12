@@ -36,6 +36,7 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
 ) {
     var endpoint by remember { mutableStateOf(HermesClient.getStoredEndpoint(context)) }
+    var userProfile by remember { mutableStateOf(HermesClient.getStoredUserProfile(context)) }
     var warning by remember { mutableStateOf<String?>(null) }
 
     val isCleartextNonLocalhost = HermesClient.isCleartextNonLocalhost(endpoint)
@@ -176,6 +177,65 @@ fun SettingsScreen(
             color = Color.White.copy(alpha = 0.4f),
             fontSize = 11.sp,
             modifier = Modifier.padding(horizontal = 32.dp, vertical = 4.dp)
+        )
+
+        Spacer(Modifier.height(24.dp))
+
+        Text(
+            text = "User Profile Name",
+            color = Color.White.copy(alpha = 0.7f),
+            fontSize = 14.sp,
+            modifier = Modifier.fillMaxWidth(0.85f).align(Alignment.Start)
+        )
+
+        BasicTextField(
+            value = userProfile,
+            onValueChange = { newValue ->
+                userProfile = newValue
+            },
+            modifier = Modifier
+                .fillMaxWidth(0.85f)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0xFF14181F))
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            textStyle = TextStyle(color = Color.White, fontSize = 16.sp),
+            cursorBrush = SolidColor(AuraColors.Cyan),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = {}),
+            decorationBox = { innerField ->
+                Box(
+                    modifier = Modifier.padding(vertical = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    innerField()
+                }
+            }
+        )
+
+        Spacer(Modifier.height(12.dp))
+
+        Button(
+            onClick = {
+                HermesClient.setUserProfile(context, userProfile.trim())
+                onBack()
+            },
+            enabled = userProfile.isNotBlank(),
+            modifier = Modifier.fillMaxWidth(0.85f),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = AuraColors.Cyan,
+                contentColor = Color.Black
+            )
+        ) {
+            Text(text = "Save Profile & Return", color = Color.Black, fontWeight = FontWeight.Bold)
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        Text(
+            text = "Current: ${HermesClient.getStoredUserProfile(context).ifEmpty { \"(empty)\" }}",
+            color = Color.White.copy(alpha = 0.5f),
+            fontSize = 12.sp,
+            modifier = Modifier.padding(horizontal = 32.dp)
         )
     }
 }

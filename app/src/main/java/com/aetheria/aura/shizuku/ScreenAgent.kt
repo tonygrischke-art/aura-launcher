@@ -3,6 +3,7 @@ package com.aetheria.aura.shizuku
 import android.content.Context
 import android.util.Log
 import com.aetheria.aura.llm.LocalLlm
+import com.aetheria.aura.net.HermesClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -18,21 +19,40 @@ object ScreenAgent {
 
     private const val TAG = "ScreenAgent"
     private const val MAX_STEPS = 8
-    private const val MAX_TOKENS = 256
+    private const val MAX_TOKENS = 512
     private const val SCREEN_SUMMARY_LIMIT = 4000
 
-    private val SYSTEM_PROMPT = """
-        You are Aura, an on-device Android phone controller acting through one tool per turn.
-        Available tools (emit exactly one line per turn):
-        TOOL uidump - re-read the current screen text/bounds
-        TOOL screenshot - capture the screen
-        TOOL tap <x> <y> - tap at pixel coordinates
-        TOOL type <text> - type text into the focused field
-        TOOL swipe <x1> <y1> <x2> <y2> <ms> - swipe gesture
-        TOOL key <code> - key event (3=HOME, 4=BACK, 66=ENTER)
-        When the task is complete, reply: ANSWER <short result for the user>.
-        Pick coordinates from the screen dump: bounds="[x1,y1][x2,y2]"; tap the center.
-    """.trimIndent()
+    private const val SYSTEM_PROMPT_BASE = "You are Aura, an on-device Android phone controller acting through one tool per turn."
+
+    private fun buildSystemPrompt(context: Context): String {
+        val userProfile = HermesClient.getStoredUserProfile(context)
+        return if (userProfile.isNotBlank()) {
+            """$SYSTEM_PROMPT_BASE
+The user is a different person from you. If asked who the user is, say you don't know their name unless a USER_PROFILE line below provides it.
+USER_PROFILE: $userProfile
+Available tools (emit exactly one line per turn):
+TOOL uidump - re-read the current screen text/bounds
+TOOL screenshot - capture the screen
+TOOL tap <x> <y> - tap at pixel coordinates
+TOOL type <text> - type text into the focused field
+TOOL swipe <x1> <y1> <x2> <y2> <ms> - swipe gesture
+TOOL key <code> - key event (3=HOME, 4=BACK, 66=ENTER)
+When the task is complete, reply: ANSWER <short result for the user>.
+Pick coordinates from the screen dump: bounds="[x1,y1][x2,y2]"; tap the center."""
+        } else {
+            """$SYSTEM_PROMPT_BASE
+The user is a different person from you. If asked who the user is, say you don't know their name unless a USER_PROFILE line below provides it.
+Available tools (emit exactly one line per turn):
+TOOL uidump - re-read the current screen text/bounds
+TOOL screenshot - capture the screen
+TOOL tap <x> <y> - tap at pixel coordinates
+TOOL type <text> - type text into the focused field
+TOOL swipe <x1> <y1> <x2> <y2> <ms> - swipe gesture
+TOOL key <code> - key event (3=HOME, 4=BACK, 66=ENTER)
+When the task is complete, reply: ANSWER <short result for the user>.
+Pick coordinates from the screen dump: bounds="[x1,y1][x2,y2]"; tap the center."""
+        }
+    }
 
     /**
      * Run one agent task. Returns the final answer text, or a clear error string
@@ -51,7 +71,7 @@ object ScreenAgent {
                 "screen tools are unavailable. Enable Shizuku and grant permission in Aura Settings."
         }
         val history = ArrayList<Pair<String, String>>()
-        history.add("system" to SYSTEM_PROMPT)
+        history.add("system" to buildSystemPrompt(context))
         history.add("user" to task)
         history.add("user" to "Current screen:\n${screenSummary()}")
 

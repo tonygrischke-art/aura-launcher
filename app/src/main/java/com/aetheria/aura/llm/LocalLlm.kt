@@ -3,6 +3,7 @@ package com.aetheria.aura.llm
 import android.content.Context
 import android.util.Log
 import com.aetheria.aura.model.ModelFileManager
+import com.aetheria.aura.net.HermesClient
 import java.io.File
 
 /**
@@ -13,7 +14,7 @@ object LocalLlm {
     private const val TAG = "AuraLocalLlm"
     const val LOAD_MMPROJ = false
     private const val N_CTX = 4096
-    private const val SYSTEM_PROMPT = "You are Aura, a concise on-device phone assistant."
+    private const val SYSTEM_PROMPT_BASE = "You are Aura, an on-device phone assistant."
 
     private var nativeOk = false
     private var nativeLoadError = ""
@@ -73,7 +74,7 @@ object LocalLlm {
     }
 
     /** ChatML prompt (Qwen format), newest turns kept within a rough size budget. */
-    fun buildPrompt(history: List<Pair<String, String>>): String {
+    fun buildPrompt(context: Context, history: List<Pair<String, String>>): String {
         val kept = ArrayList<Pair<String, String>>()
         var chars = 0
         for (turn in history.asReversed()) {
@@ -81,9 +82,15 @@ object LocalLlm {
             if (kept.size >= 12 || chars > 6000) break
             kept.add(turn)
         }
-        val sb = StringBuilder("<|im_start|>system\n$SYSTEM_PROMPT<|im_end|>\n")
-        for ((role, text) in kept.asReversed()) sb.append("<|im_start|>").append(role).append('\n').append(text).append("<|im_end|>\n")
-        sb.append("<|im_start|>assistant\n")
+        val userProfile = HermesClient.getStoredUserProfile(context)
+        val systemPrompt = if (userProfile.isNotBlank()) {
+            "$SYSTEM_PROMPT_BASE\nThe user is a different person from you. If asked who the user is, say you don't know their name unless a USER_PROFILE line below provides it.\nUSER_PROFILE: $userProfile"
+        } else {
+            "$SYSTEM_PROMPT_BASE\nThe user is a different person from you. If asked who the user is, say you don't know their name unless a USER_PROFILE line below provides it."
+        }
+        val sb = StringBuilder("""<|system|>\n$systemPrompt<|endoftext|>""")
+        for ((role, text) in kept.asReversed()) sb.append("<|").append(role).append("|>\n").append(text).append("<|endoftext|>\n")
+        sb.append("<|assistant|>\n")
         return sb.toString()
     }
 
@@ -96,7 +103,7 @@ object LocalLlm {
         ensureLoaded(ctx)?.let { return it }
         var error: String? = null
         var produced = false
-        nativeGenerate(buildPrompt(history), maxTokens, temperature, object : GenerateCallback {
+        nativeGenerate(buildPrompt(ctx, history), maxTokens, temperature, object : GenerateCallback {
             override fun onToken(utf8Bytes: ByteArray) { produced = true; onText(String(utf8Bytes, Charsets.UTF_8)) }
             override fun onComplete() {}
             override fun onError(error: String) { Log.e(TAG, error); this@LocalLlm.lastGenError = error }
