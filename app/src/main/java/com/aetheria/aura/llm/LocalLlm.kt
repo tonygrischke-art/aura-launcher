@@ -3,7 +3,7 @@ package com.aetheria.aura.llm
 import android.content.Context
 import android.util.Log
 import com.aetheria.aura.model.ModelFileManager
-import com.aetheria.aura.net.HermesClient
+import com.aetheria.aura.settings.UserProfileStore
 import java.io.File
 
 /**
@@ -82,7 +82,7 @@ object LocalLlm {
             if (kept.size >= 12 || chars > 6000) break
             kept.add(turn)
         }
-        val userProfile = HermesClient.getStoredUserProfile(context)
+        val userProfile = UserProfileStore.getProfileForPrompt(context)
         val systemPrompt = if (userProfile.isNotBlank()) {
             "$SYSTEM_PROMPT_BASE\nThe user is a different person from you. If asked who the user is, say you don't know their name unless a USER_PROFILE line below provides it.\nUSER_PROFILE: $userProfile"
         } else {

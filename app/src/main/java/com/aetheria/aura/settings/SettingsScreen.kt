@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aetheria.aura.avatar.AuraColors
 import com.aetheria.aura.net.HermesClient
+import com.aetheria.aura.settings.UserProfileStore
 
 @Composable
 fun SettingsScreen(
@@ -36,7 +37,7 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
 ) {
     var endpoint by remember { mutableStateOf(HermesClient.getStoredEndpoint(context)) }
-    var userProfile by remember { mutableStateOf(HermesClient.getStoredUserProfile(context)) }
+    var userProfile by remember { mutableStateOf(UserProfileStore.getUserName(context)) }
     var warning by remember { mutableStateOf<String?>(null) }
 
     val isCleartextNonLocalhost = HermesClient.isCleartextNonLocalhost(endpoint)
@@ -216,7 +217,7 @@ fun SettingsScreen(
 
         Button(
             onClick = {
-                HermesClient.setUserProfile(context, userProfile.trim())
+                UserProfileStore.setUserName(context, userProfile.trim())
                 onBack()
             },
             enabled = userProfile.isNotBlank(),
@@ -231,7 +232,7 @@ fun SettingsScreen(
 
         Spacer(Modifier.height(16.dp))
 
-        val currentProfile = HermesClient.getStoredUserProfile(context).ifEmpty { "(empty)" }
+        val currentProfile = UserProfileStore.getUserName(context).ifEmpty { "(empty)" }
         Text(
             text = "Current: $currentProfile",
             color = Color.White.copy(alpha = 0.5f),

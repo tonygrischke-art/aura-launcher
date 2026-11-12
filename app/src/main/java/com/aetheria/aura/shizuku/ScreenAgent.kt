@@ -3,7 +3,7 @@ package com.aetheria.aura.shizuku
 import android.content.Context
 import android.util.Log
 import com.aetheria.aura.llm.LocalLlm
-import com.aetheria.aura.net.HermesClient
+import com.aetheria.aura.settings.UserProfileStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -25,7 +25,7 @@ object ScreenAgent {
     private const val SYSTEM_PROMPT_BASE = "You are Aura, an on-device Android phone controller acting through one tool per turn."
 
     private fun buildSystemPrompt(context: Context): String {
-        val userProfile = HermesClient.getStoredUserProfile(context)
+        val userProfile = UserProfileStore.getProfileForPrompt(context)
         return if (userProfile.isNotBlank()) {
             """$SYSTEM_PROMPT_BASE
 The user is a different person from you. If asked who the user is, say you don't know their name unless a USER_PROFILE line below provides it.
