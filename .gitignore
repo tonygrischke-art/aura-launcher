@@ -1,0 +1,36 @@
+# Gradle
+.gradle/
+build/
+local.properties
+*.iml
+*.apk
+
+# IDE
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Reports
+*.html
+.kotlin/
+
+# Block6 / native
+node_modules/
+web/dist/
+android/build/
+android/assets/www/
+android/assets/phone/
+__pycache__/
+*.pyc
+*.keystore
+!app/debug.keystore
+app/libs/*.aar
+# Local native build artifacts (never committed; CI compiles from source)
+app/.cxx/
+app/src/main/jniLibs/
+out/

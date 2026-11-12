@@ -1,0 +1,137 @@
+name: CI
+
+# OpenUI's install script sends telemetry unless one of these is set.
+env:
+  OPENUI_TELEMETRY_DISABLED: '1'
+  DO_NOT_TRACK: '1'
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch: {}
+
+jobs:
+  web:
+    name: Web (typecheck, unit tests, build, browser e2e)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            web/package-lock.json
+            tools/web-e2e/package-lock.json
+      - run: npm ci
+        working-directory: web
+      - run: npm test
+        working-directory: web
+      - run: npm run build
+        working-directory: web
+      - name: Browser e2e against the mock Hermes
+        working-directory: tools/web-e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          ./run.sh
+
+  plugin:
+    name: Plugin (canvas + media)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install fastapi httpx
+      - run: python3 tools/test_canvas.py
+      - run: python3 tools/test_library.py
+      - run: python3 tools/test_gallery.py
+      - run: python3 tools/test_media.py
+      - run: python3 tools/test_chat_search.py
+      - run: python3 tools/test_checkpoints.py
+      - run: python3 tools/test_battery.py
+      - run: python3 tools/test_approval.py
+      - run: python3 tools/test_chip.py
+      - run: python3 tools/test_phone_app.py
+      - run: python3 tools/test_auto_mode.py
+      - run: python3 tools/test_openui.py
+      - run: python3 tools/test_openui_query.py
+      - run: python3 tools/test_claude_login.py
+      - run: python3 tools/test_phone_access.py
+
+  hermes-patches:
+    name: Hermes patches apply to the pinned Hermes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: tools/test_hermes_patches.sh
+      - run: bash tools/test_hermes_debian.sh
+      - run: bash tools/test_bootstrap_pin.sh
+      - run: bash tools/test_bootstrap_image.sh
+      - run: bash tools/test_say_hook.sh
+      - run: bash tools/test_uninstall.sh
+
+  android:
+    name: Android Java compiles
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/hermes-mobile
+          key: android-all-16
+      - run: tools/java-check.sh
+      - run: tools/test_setup_lines.sh
+      - run: tools/test_autostart.sh
+
+  android-native:
+    name: Android native build (arm64-v8a)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Set up Android SDK
+        run: |
+          CMDLINE_TOOLS_URL="https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip"
+          mkdir -p /usr/local/lib/android/sdk
+          cd /usr/local/lib/android/sdk
+          wget -q "$CMDLINE_TOOLS_URL" -O cmdline-tools.zip
+          unzip -q cmdline-tools.zip -d cmdline-tools
+          rm cmdline-tools.zip
+          mv cmdline-tools/cmdline-tools cmdline-tools/latest 2>/dev/null || true
+          export PATH=$PATH:/usr/local/lib/android/sdk/cmdline-tools/latest/bin
+          yes | sdkmanager --licenses --sdk_root=/usr/local/lib/android/sdk
+          sdkmanager "platforms;android-36" "build-tools;35.0.0" "cmake;3.22.1" "ndk;26.1.10909125" --sdk_root=/usr/local/lib/android/sdk
+          echo "ANDROID_HOME=/usr/local/lib/android/sdk" >> $GITHUB_ENV
+          echo "ANDROID_NDK_HOME=/usr/local/lib/android/sdk/ndk/26.1.10909125" >> $GITHUB_ENV
+      - name: Install web dependencies
+        run: npm ci
+        working-directory: web
+      - name: Build APK with native library
+        run: |
+          cd android
+          chmod +x build.sh
+          ./build.sh
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hermes-mobile-apk
+          path: android/build/hermes-mobile.apk
+          retention-days: 7
+      - name: Upload native libraries
+        uses: actions/upload-artifact@v4
+        with:
+          name: hermes-mobile-native-libs
+          path: android/src/main/jniLibs/arm64-v8a/*.so
+          retention-days: 7
