@@ -231,8 +231,9 @@ fun SettingsScreen(
 
         Spacer(Modifier.height(16.dp))
 
+        val currentProfile = HermesClient.getStoredUserProfile(context).ifEmpty { "(empty)" }
         Text(
-            text = "Current: ${HermesClient.getStoredUserProfile(context).ifEmpty { \"(empty)\" }}",
+            text = "Current: $currentProfile",
             color = Color.White.copy(alpha = 0.5f),
             fontSize = 12.sp,
             modifier = Modifier.padding(horizontal = 32.dp)
