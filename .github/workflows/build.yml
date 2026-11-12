@@ -3,7 +3,7 @@ name: Build and Release Debug APK
 on:
   workflow_dispatch: {}
   push:
-    branches: [main, "audit/**", phase3b-video-orb, phase3c-wire-orb, phase4a-nim-client, phase4-backend-router, phase5-wake-word, integration/**, feat/wake-word, feat/wiring-gaps, feat/shizuku-integration]
+    branches: [main, "audit/**", phase3b-video-orb, phase3c-wire-orb, phase4a-nim-client, phase4-backend-router, phase5-wake-word, integration/**, feat/wake-word, feat/wiring-gaps, feat/shizuku-integration, fix/identity-prompt]
   pull_request:
     branches: [main]
 
